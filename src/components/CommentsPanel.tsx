@@ -138,14 +138,14 @@ export function CommentsPanel({ isOpen, onClose, post }: CommentsPanelProps) {
       {isOpen && (
         <>
           <motion.div
-            className="fixed inset-0 z-50 bg-[#0a0f1c]/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[90] bg-[#0a0f1c]/80 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
           />
           <motion.div
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[90vh] bg-[#0c1526] rounded-t-3xl border-t border-[#1e3a6e]/20 flex flex-col md:inset-x-auto md:left-1/2 md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-lg md:w-full md:rounded-3xl md:border md:max-h-[85vh]"
+            className="fixed inset-x-0 bottom-0 z-[100] h-[80vh] bg-[#0c1526] rounded-t-3xl border-t border-[#1e3a6e]/20 flex flex-col md:inset-x-auto md:left-1/2 md:bottom-auto md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:max-w-lg md:w-full md:rounded-3xl md:border md:h-auto md:max-h-[85vh]"
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}

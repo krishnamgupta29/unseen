@@ -2,243 +2,308 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { Eye, EyeOff, User, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, User, Lock, Mail, ArrowRight, RefreshCw } from 'lucide-react';
+import { useApp } from '@/context/AppContext';
+import { useEffect } from 'react';
 
 interface AuthScreenProps {
   onLogin: () => void;
 }
 
-function GoogleLogo({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-    </svg>
-  );
-}
-
-function XLogo({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-    </svg>
-  );
-}
-
-function AppleLogo({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/>
-    </svg>
-  );
-}
-
 export function AuthScreen({ onLogin }: AuthScreenProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
   });
-  const [ripple, setRipple] = useState<{ x: number; y: number; id: number } | null>(null);
+  const { login } = useApp();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const generateUsername = () => {
+    const prefixes = ['unseen', 'agent', 'soul', 'shadow', 'silent', 'echo'];
+    const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const randomNumber = Math.floor(1000 + Math.random() * 9000);
+    const newUsername = `${randomPrefix}${randomNumber}`;
+    setFormData(prev => ({ ...prev, username: newUsername }));
+  };
+
+  useEffect(() => {
+    if (!isLogin && !formData.username) {
+      generateUsername();
+    }
+  }, [isLogin]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setErrorMsg('');
+    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
+    
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // Use AppContext login
+        const loggedUser = data.user;
+        if (loggedUser) {
+          login({ ...loggedUser, id: loggedUser._id || loggedUser.id });
+          onLogin();
+        } else {
+          setErrorMsg('User data not found in response');
+        }
+      } else {
+        setErrorMsg(data.error || 'Something went wrong');
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to connect to server');
+    }
   };
 
-  const handleSocialClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setRipple({ x, y, id: Date.now() });
-    setTimeout(() => {
-      setRipple(null);
-      onLogin();
-    }, 300);
-  };
 
   return (
     <motion.div
       className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #0a0f1c 0%, #0c1628 50%, #0a1020 100%)' }}
+      style={{ background: 'linear-gradient(135deg, #050505 0%, #0a0a0f 50%, #050505 100%)' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
     >
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay"></div>
         <motion.div 
-          className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full"
+          className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full blur-[120px]"
           style={{
-            background: 'radial-gradient(circle, rgba(74, 124, 201, 0.08) 0%, transparent 60%)',
+            background: 'radial-gradient(circle, rgba(106, 0, 255, 0.15) 0%, transparent 70%)',
           }}
           animate={{
             scale: [1, 1.1, 1],
             opacity: [0.5, 0.8, 0.5],
+            x: [0, -50, 0]
           }}
           transition={{
-            duration: 8,
+            duration: 15,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         />
         <motion.div 
-          className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full"
+          className="absolute bottom-0 left-0 w-[600px] h-[600px] rounded-full blur-[100px]"
           style={{
-            background: 'radial-gradient(circle, rgba(59, 92, 168, 0.06) 0%, transparent 60%)',
+            background: 'radial-gradient(circle, rgba(0, 240, 255, 0.1) 0%, transparent 70%)',
           }}
           animate={{
             scale: [1.1, 1, 1.1],
             opacity: [0.3, 0.6, 0.3],
+            y: [0, -30, 0]
           }}
           transition={{
-            duration: 10,
+            duration: 12,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         />
       </div>
 
-      <motion.div 
-        className="w-full max-w-md relative z-10"
-        initial={{ y: 30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
-      >
+      <div className="w-full max-w-6xl relative z-10 flex flex-col md:flex-row items-center gap-12 lg:gap-24">
+        
+        {/* LEFT: Features */}
         <motion.div 
-          className="text-center mb-10"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.6 }}
+          className="flex-1 hidden md:block"
+          initial={{ x: -30, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
         >
           <motion.h1 
-            className="text-5xl font-bold tracking-[0.25em] mb-4"
+            className="text-6xl font-bold tracking-[0.2em] mb-6"
             style={{ fontFamily: "'Sora', sans-serif" }}
-            initial={{ letterSpacing: '0.5em', opacity: 0 }}
-            animate={{ letterSpacing: '0.25em', opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
           >
-            <span className="gradient-text">UNSEEN</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-300 to-[#6a00ff]">UNSEEN</span>
           </motion.h1>
-          <motion.p 
-            className="text-[#5a7ab0] text-sm tracking-wide"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
-          >
-            Say it. Without being seen.
-          </motion.p>
+          <p className="text-gray-400 text-lg mb-12 max-w-md leading-relaxed">
+            A premium sanctuary for your thoughts. No algorithms. No identity tracking. Just pure expression.
+          </p>
+
+          <div className="grid grid-cols-2 gap-6 w-full mt-8">
+            {[
+              { title: "Fully Anonymous Messaging", desc: "Speak your truth without identity weight.", icon: "💬" },
+              { title: "No Identity Tracking", desc: "We don't know who you are.", icon: "👁️‍🗨️" },
+              { title: "Secure Sharing", desc: "End-to-end encrypted drops.", icon: "🔐" },
+              { title: "Zero Exposure", desc: "Your data stays yours completely.", icon: "🛡️" }
+            ].map((feature, i) => (
+              <motion.div 
+                key={i}
+                className="flex flex-col gap-3 p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-purple-500/50 hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(106,0,255,0.15)] transition-all duration-300 group cursor-default"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 + i * 0.1, type: "spring", bounce: 0.4 }}
+              >
+                <div className="text-3xl opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all drop-shadow-[0_0_10px_rgba(106,0,255,0.5)]">
+                  {feature.icon}
+                </div>
+                <div>
+                  <h3 className="text-white font-medium mb-1 drop-shadow-md text-sm">{feature.title}</h3>
+                  <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors leading-relaxed">{feature.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
 
+        {/* RIGHT: Auth Panel */}
         <motion.div 
-          className="glass rounded-3xl p-8 intimate-shadow"
+          className="w-full max-w-md lg:max-w-lg flex-1"
+          initial={{ y: 30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }}
+        >
+          {/* Mobile Header (Only visible on small screens) */}
+          <div className="md:hidden text-center mb-8">
+            <h1 className="text-4xl font-bold tracking-[0.2em] mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-[#6a00ff]">UNSEEN</h1>
+            <p className="text-gray-400 text-sm">Say it. Without being seen.</p>
+          </div>
+
+          <motion.div 
+            className="glass-strong rounded-3xl p-8 border border-white/10 shadow-[0_0_50px_rgba(106,0,255,0.15)] relative overflow-hidden"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.6 }}
           layout
         >
-          <div className="flex gap-2 p-1.5 bg-[#0d1526]/60 rounded-2xl mb-8">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#6a00ff] to-transparent opacity-50" />
+          
+          <div className="flex gap-2 p-1.5 bg-black/40 rounded-2xl mb-8 border border-white/5 relative z-10">
             <motion.button
+              type="button"
               onClick={() => setIsLogin(true)}
               className={`flex-1 py-3 text-sm font-medium rounded-xl transition-all duration-300 relative ${
                 isLogin 
-                  ? 'text-[#e0eaff]' 
-                  : 'text-[#5a7ab0] hover:text-[#7a9fd4]'
+                  ? 'text-white' 
+                  : 'text-gray-500 hover:text-gray-300'
               }`}
               whileTap={{ scale: 0.98 }}
             >
               {isLogin && (
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-[#2a4d8f]/40 to-[#3b5ca8]/40 rounded-xl"
+                  className="absolute inset-0 bg-white/10 rounded-xl border border-white/10 shadow-[0_0_15px_rgba(106,0,255,0.3)]"
                   layoutId="authTab"
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}
-              <span className="relative z-10">Sign In</span>
+              <span className="relative z-10">Login</span>
             </motion.button>
             <motion.button
+              type="button"
               onClick={() => setIsLogin(false)}
               className={`flex-1 py-3 text-sm font-medium rounded-xl transition-all duration-300 relative ${
                 !isLogin 
-                  ? 'text-[#e0eaff]' 
-                  : 'text-[#5a7ab0] hover:text-[#7a9fd4]'
+                  ? 'text-white' 
+                  : 'text-gray-500 hover:text-gray-300'
               }`}
               whileTap={{ scale: 0.98 }}
             >
               {!isLogin && (
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-[#2a4d8f]/40 to-[#3b5ca8]/40 rounded-xl"
+                  className="absolute inset-0 bg-white/10 rounded-xl border border-white/10 shadow-[0_0_15px_rgba(106,0,255,0.3)]"
                   layoutId="authTab"
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                 />
               )}
-              <span className="relative z-10">Create Account</span>
+              <span className="relative z-10">Sign Up</span>
             </motion.button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <motion.div
-              initial={false}
-              animate={{ 
-                height: isLogin ? 0 : 'auto', 
-                opacity: isLogin ? 0 : 1,
-                marginBottom: isLogin ? 0 : 16,
-              }}
-              transition={{ duration: 0.3 }}
-              className="overflow-hidden"
-            >
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5a7ab0]" />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-[#142240]/50 border border-[#1e3a6e]/20 rounded-xl py-4 pl-12 pr-4 text-[#e0eaff] placeholder:text-[#5a7ab0] focus:outline-none focus:border-[#4a7cc9]/50 focus:bg-[#1a2d50]/50 transition-all"
-                />
-              </div>
-            </motion.div>
-
+          <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
             <div className="relative group">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5a7ab0] group-focus-within:text-[#7aa2e3] transition-colors" />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#00f0ff] transition-colors" />
               <input
                 type="text"
                 placeholder="Username"
                 value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                className="w-full bg-[#142240]/50 border border-[#1e3a6e]/20 rounded-xl py-4 pl-12 pr-4 text-[#e0eaff] placeholder:text-[#5a7ab0] focus:outline-none focus:border-[#4a7cc9]/50 focus:bg-[#1a2d50]/50 transition-all"
+                readOnly={!isLogin}
+                onChange={(e) => isLogin && setFormData({ ...formData, username: e.target.value })}
+                className={`w-full bg-black/40 border border-white/10 rounded-xl py-4 pl-12 ${!isLogin ? 'pr-12' : 'pr-4'} text-white placeholder:text-gray-600 focus:outline-none focus:border-[#00f0ff]/50 focus:bg-white/5 focus:shadow-[0_0_15px_rgba(0,240,255,0.1)] transition-all ${!isLogin ? 'opacity-80' : ''}`}
               />
+              {!isLogin && (
+                <button
+                  type="button"
+                  onClick={generateUsername}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-all hover:rotate-180 duration-500 bg-white/5 hover:bg-white/10 p-1.5 rounded-md"
+                  title="Generate Random Username"
+                >
+                  🎲
+                </button>
+              )}
             </div>
+            {!isLogin && (
+              <p className="text-xs text-gray-500 pl-1 -mt-3">A random alias guarantees absolute anonymity.</p>
+            )}
 
             <div className="relative group">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5a7ab0] group-focus-within:text-[#7aa2e3] transition-colors" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#00f0ff] transition-colors" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full bg-[#142240]/50 border border-[#1e3a6e]/20 rounded-xl py-4 pl-12 pr-12 text-[#e0eaff] placeholder:text-[#5a7ab0] focus:outline-none focus:border-[#4a7cc9]/50 focus:bg-[#1a2d50]/50 transition-all"
+                className="w-full bg-black/40 border border-white/10 rounded-xl py-4 pl-12 pr-12 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#00f0ff]/50 focus:bg-white/5 focus:shadow-[0_0_15px_rgba(0,240,255,0.1)] transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#5a7ab0] hover:text-[#7a9fd4] transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                title={showPassword ? "Hide Password" : "Show Password"}
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
 
+            <motion.div
+              initial={false}
+              animate={{ 
+                height: isLogin ? 0 : 'auto', 
+                opacity: isLogin ? 0 : 1,
+              }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="relative group pt-1">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-[#00f0ff] transition-colors" />
+                <input
+                  type="email"
+                  placeholder="Recovery Email (Optional)"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-[#00f0ff]/50 focus:bg-white/5 focus:shadow-[0_0_15px_rgba(0,240,255,0.1)] transition-all"
+                />
+              </div>
+            </motion.div>
+
+            {errorMsg && (
+              <motion.p
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-red-400 text-sm font-medium text-center bg-red-400/10 py-2 rounded-lg border border-red-400/20"
+              >
+                {errorMsg}
+              </motion.p>
+            )}
+
             {isLogin && (
               <motion.div 
-                className="flex justify-end"
+                className="flex justify-end pt-1"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
               >
-                <button type="button" className="text-sm text-[#7aa2e3] hover:text-[#9ab8ed] transition-colors">
+                <button type="button" className="text-sm text-gray-400 hover:text-[#00f0ff] hover:drop-shadow-[0_0_8px_rgba(0,240,255,0.5)] transition-all">
                   Forgot password?
                 </button>
               </motion.div>
@@ -246,94 +311,56 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
 
             <motion.button
               type="submit"
-              className="w-full py-4 rounded-xl font-medium text-white relative overflow-hidden group mt-6"
-              style={{
-                background: 'linear-gradient(135deg, #3b5ca8 0%, #2a4d8f 50%, #1e3b6f 100%)',
-              }}
-              whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(74, 124, 201, 0.3)' }}
+              className="w-full py-4 rounded-xl font-medium text-white relative overflow-hidden group mt-8 bg-gradient-to-r from-[#6a00ff] to-[#ff00ea]"
+              whileHover={{ scale: 1.02, boxShadow: '0 0 30px rgba(106, 0, 255, 0.4)' }}
               whileTap={{ scale: 0.98 }}
             >
               <span className="relative z-10 flex items-center justify-center gap-2 text-[15px]">
-                {isLogin ? 'Sign In' : 'Create Account'}
+                {isLogin ? 'Secure Login' : 'Enter the Unseen'}
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </span>
               <motion.div 
-                className="absolute inset-0 bg-gradient-to-r from-[#4a7cc9] to-[#3b5ca8]"
+                className="absolute inset-0 bg-white/20"
                 initial={{ x: '-100%' }}
                 whileHover={{ x: 0 }}
                 transition={{ duration: 0.3 }}
               />
             </motion.button>
+            
+            <p className="text-center text-gray-500 text-sm mt-4">
+              {isLogin ? "Don't have an account? " : "Already have an identity? "}
+              <button 
+                type="button" 
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-white hover:text-[#00f0ff] hover:underline transition-all"
+              >
+                {isLogin ? "Create one" : "Login"}
+              </button>
+            </p>
           </form>
-
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#1e3a6e]/20" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-[#0f1e3d] px-4 text-xs text-[#5a7ab0] tracking-wide">or continue with</span>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <motion.button
-              onClick={handleSocialClick}
-              className="flex-1 flex items-center justify-center gap-3 py-3.5 rounded-xl bg-[#142240]/50 border border-[#1e3a6e]/20 hover:bg-[#1a2d50]/60 hover:border-[#2a4d8f]/30 transition-all relative overflow-hidden group"
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {ripple && (
-                <motion.span
-                  className="absolute bg-[#4a7cc9]/20 rounded-full"
-                  style={{
-                    left: ripple.x - 50,
-                    top: ripple.y - 50,
-                    width: 100,
-                    height: 100,
-                  }}
-                  initial={{ scale: 0, opacity: 1 }}
-                  animate={{ scale: 3, opacity: 0 }}
-                  transition={{ duration: 0.5 }}
-                />
-              )}
-              <GoogleLogo className="w-5 h-5" />
-              <span className="text-sm text-[#a0c4ff] font-medium hidden sm:inline">Google</span>
-            </motion.button>
-
-            <motion.button
-              onClick={handleSocialClick}
-              className="flex-1 flex items-center justify-center gap-3 py-3.5 rounded-xl bg-[#142240]/50 border border-[#1e3a6e]/20 hover:bg-[#1a2d50]/60 hover:border-[#2a4d8f]/30 transition-all relative overflow-hidden group"
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <AppleLogo className="w-5 h-5 text-[#a0c4ff]" />
-              <span className="text-sm text-[#a0c4ff] font-medium hidden sm:inline">Apple</span>
-            </motion.button>
-
-            <motion.button
-              onClick={handleSocialClick}
-              className="flex-1 flex items-center justify-center gap-3 py-3.5 rounded-xl bg-[#142240]/50 border border-[#1e3a6e]/20 hover:bg-[#1a2d50]/60 hover:border-[#2a4d8f]/30 transition-all relative overflow-hidden group"
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <XLogo className="w-4 h-4 text-[#a0c4ff]" />
-              <span className="text-sm text-[#a0c4ff] font-medium hidden sm:inline">X</span>
-            </motion.button>
-          </div>
         </motion.div>
-
-        <motion.p 
-          className="text-center text-[#3b5998] text-xs mt-8 leading-relaxed"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-        >
-          By continuing, you agree to our{' '}
-          <span className="text-[#5a7ab0] hover:text-[#7a9fd4] cursor-pointer transition-colors">Terms of Service</span>
-          {' '}and{' '}
-          <span className="text-[#5a7ab0] hover:text-[#7a9fd4] cursor-pointer transition-colors">Privacy Policy</span>
-        </motion.p>
       </motion.div>
+      </div>
+
+      {/* FOOTER */}
+      <motion.footer 
+        className="absolute bottom-0 inset-x-0 pb-6 pt-4 bg-black/40 backdrop-blur-md"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1 }}
+      >
+        <div className="w-full max-w-4xl mx-auto">
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-[#00f0ff]/50 to-transparent mb-4 shadow-[0_0_10px_rgba(0,240,255,0.5)]" />
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-12 text-xs font-medium tracking-widest uppercase text-gray-500">
+            <a href="#" className="hover:text-white hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] transition-all">Privacy</a>
+            <a href="#" className="hover:text-white hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] transition-all">Terms</a>
+            <a href="#" className="hover:text-white hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] transition-all">Support</a>
+            <a href="mailto:useen3113@gmail.com" className="text-[#00f0ff] hover:text-white hover:drop-shadow-[0_0_8px_#00f0ff] transition-all">useen3113@gmail.com</a>
+          </div>
+          <p className="text-center text-[10px] text-gray-600 mt-4 tracking-widest uppercase">© 2026 UNSEEN. Zero Identity Tracked.</p>
+        </div>
+      </motion.footer>
+
     </motion.div>
   );
 }

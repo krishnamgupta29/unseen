@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Send, MoreVertical, Image, Smile, Lock } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { Conversation, Profile, Message } from '@/lib/mock-data';
+import { Conversation, Profile, Message } from '@/lib/types';
 import { useApp } from '@/context/AppContext';
 
 interface ChatListProps {
@@ -126,30 +126,6 @@ export function ChatView({ conversation, onBack }: ChatViewProps) {
     setLocalMessages([...localMessages, newMessage]);
     addMessage(conversation.id, message, 'text');
     setMessage('');
-
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const replies = [
-        "Samajh sakta hoon.",
-        "Bilkul feel kiya.",
-        "Akele nahi ho.",
-        "Sunke acha laga.",
-        "Main bhi aise hi feel karta hoon kabhi kabhi.",
-        "Dil ki baat kahi tumne.",
-        "Sach mein... same here.",
-        "Yeh toh dil touch kar gaya.",
-      ];
-      const reply: Message = {
-        id: `reply-${Date.now()}`,
-        senderId: conversation.profileId,
-        content: replies[Math.floor(Math.random() * replies.length)],
-        timestamp: 'Just now',
-        isMe: false,
-        type: 'text',
-      };
-      setLocalMessages((prev) => [...prev, reply]);
-    }, 2000 + Math.random() * 1000);
   };
 
   if (!profile) return null;

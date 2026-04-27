@@ -34,10 +34,12 @@ function Avatar({ size = 'sm' }: { size?: 'sm' | 'md' }) {
     md: 'w-8 h-8',
   };
 
+  const avatarGradient = currentUser?.avatarGradient || 'from-violet-600 via-purple-600 to-indigo-600';
+
   return (
-    <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br ${currentUser.avatarGradient} p-[1.5px]`}>
+    <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br ${avatarGradient} p-[1.5px]`}>
       <div className="w-full h-full rounded-full bg-[#0d1526] flex items-center justify-center">
-        <div className={`w-[70%] h-[70%] rounded-full bg-gradient-to-br ${currentUser.avatarGradient} opacity-40`} />
+        <div className={`w-[70%] h-[70%] rounded-full bg-gradient-to-br ${avatarGradient} opacity-40`} />
       </div>
     </div>
   );
@@ -189,25 +191,26 @@ function NotificationDropdown({
 }
 
 export function DesktopSidebar({ activeTab, onTabChange, messageCount }: Omit<DesktopSidebarProps, 'notificationCount'>) {
+  const { currentUser } = useApp();
   const navItems: { id: Tab; icon: typeof Home; label: string; badge?: number }[] = [
-    { id: 'feed', icon: Home, label: 'Home' },
-    { id: 'explore', icon: Compass, label: 'Explore' },
-    { id: 'messages', icon: MessageCircle, label: 'Messages', badge: messageCount },
-    { id: 'create', icon: PlusSquare, label: 'Create' },
-    { id: 'profile', icon: User, label: 'Profile' },
-    { id: 'settings', icon: Settings, label: 'Settings' },
+    { id: 'feed', icon: Home, label: 'Pulse' },
+    { id: 'explore', icon: Compass, label: 'Discover' },
+    { id: 'messages', icon: MessageCircle, label: 'Signals', badge: messageCount },
+    { id: 'create', icon: PlusSquare, label: 'Drop' },
+    { id: 'profile', icon: User, label: 'Identity' },
+    { id: 'settings', icon: Settings, label: 'Control' },
   ];
 
   return (
     <aside className="desktop-sidebar">
       <div className="p-6">
         <h1 
-          className="text-2xl font-semibold tracking-[0.15em] gradient-text"
-          style={{ fontFamily: "'Literata', Georgia, serif" }}
+          className="text-2xl font-bold tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-white to-[#6a00ff]"
+          style={{ fontFamily: "'Sora', 'Inter', sans-serif" }}
         >
           UNSEEN
         </h1>
-        <p className="text-xs text-[#5a7ab0] mt-1">Say it. Without being seen.</p>
+        <p className="text-xs text-gray-500 mt-2 tracking-wide uppercase">Zero Identity</p>
       </div>
 
       <nav className="flex-1 px-3">
@@ -215,31 +218,42 @@ export function DesktopSidebar({ activeTab, onTabChange, messageCount }: Omit<De
           <button
             key={id}
             onClick={() => onTabChange(id)}
-            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl mb-1 transition-all ${
+            className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl mb-2 transition-all duration-300 relative group overflow-hidden ${
               activeTab === id 
-                ? 'bg-[#1e3a6e]/40 text-[#7aa2e3]' 
-                : 'text-[#7a9fd4] hover:bg-[#142240]/40 hover:text-[#a0c4ff]'
+                ? 'bg-white/10 text-white shadow-[0_0_15px_rgba(106,0,255,0.2)]' 
+                : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
             }`}
           >
-            <div className="relative">
-              <Icon className={`w-5 h-5 ${activeTab === id ? 'text-[#7aa2e3]' : ''}`} />
+            {activeTab === id && (
+              <motion.div 
+                layoutId="activeNavDesktop"
+                className="absolute inset-0 bg-gradient-to-r from-[#6a00ff]/20 to-transparent border-l-2 border-[#00f0ff]"
+                initial={false}
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+            <div className="relative z-10">
+              <Icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${activeTab === id ? 'text-[#00f0ff]' : ''}`} />
               {badge && badge > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#4a7cc9] text-white rounded-full text-[10px] font-medium flex items-center justify-center">
-                  {badge}
-                </span>
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#00f0ff] rounded-full animate-pulse shadow-[0_0_8px_#00f0ff]" />
               )}
             </div>
-            <span className={`font-medium ${activeTab === id ? 'text-[#e0eaff]' : ''}`}>{label}</span>
+            <span className={`font-medium relative z-10 tracking-wide ${activeTab === id ? 'text-white' : ''}`}>{label}</span>
           </button>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-[#1e3a6e]/15">
-        <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#142240]/40 transition-colors cursor-pointer">
-          <Avatar size="md" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-[#e0eaff]">@chuppi_todunga</p>
-            <p className="text-xs text-[#5a7ab0]">Anonymous</p>
+      <div className="p-4 border-t border-white/5">
+        <div 
+          className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
+          onClick={() => onTabChange('profile')}
+        >
+          <div className="group-hover:shadow-[0_0_15px_rgba(106,0,255,0.4)] rounded-full transition-shadow">
+            <Avatar size="md" />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-medium text-white truncate group-hover:text-[#00f0ff] transition-colors">{currentUser?.displayName || 'Anonymous Soul'}</p>
+            <p className="text-xs text-gray-500 truncate">@{currentUser?.username || 'unknown'}</p>
           </div>
         </div>
       </div>
@@ -260,7 +274,7 @@ export function TabletSidebar({ activeTab, onTabChange, messageCount }: Omit<Des
   return (
     <aside className="tablet-sidebar items-center">
       <div className="p-4 mt-2">
-        <h1 className="text-lg font-semibold text-[#7aa2e3]" style={{ fontFamily: "'Literata', Georgia, serif" }}>U</h1>
+        <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-[#6a00ff]" style={{ fontFamily: "'Sora', 'Inter', sans-serif" }}>U</h1>
       </div>
 
       <nav className="flex-1 flex flex-col items-center gap-1 px-2">
@@ -268,18 +282,24 @@ export function TabletSidebar({ activeTab, onTabChange, messageCount }: Omit<Des
           <button
             key={id}
             onClick={() => onTabChange(id)}
-            className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all ${
+            className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all relative group ${
               activeTab === id 
-                ? 'bg-[#1e3a6e]/40 text-[#7aa2e3]' 
-                : 'text-[#7a9fd4] hover:bg-[#142240]/40 hover:text-[#a0c4ff]'
+                ? 'bg-white/10 text-[#00f0ff] shadow-[0_0_10px_rgba(106,0,255,0.2)]' 
+                : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
             }`}
           >
-            <div className="relative">
+            {activeTab === id && (
+              <motion.div 
+                layoutId="activeNavTablet"
+                className="absolute inset-0 bg-gradient-to-tr from-[#6a00ff]/20 to-transparent rounded-xl border border-white/10"
+                initial={false}
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+              />
+            )}
+            <div className="relative z-10 transition-transform duration-300 group-hover:scale-110">
               <Icon className="w-5 h-5" />
               {badge && badge > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#4a7cc9] text-white rounded-full text-[10px] font-medium flex items-center justify-center">
-                  {badge}
-                </span>
+                <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#00f0ff] rounded-full animate-pulse shadow-[0_0_8px_#00f0ff]" />
               )}
             </div>
           </button>
@@ -295,11 +315,11 @@ export function TabletSidebar({ activeTab, onTabChange, messageCount }: Omit<Des
 
 export function BottomNav({ activeTab, onTabChange, notificationCount, messageCount }: BottomNavProps) {
   const tabs: { id: Tab; icon: typeof Home; label: string }[] = [
-    { id: 'feed', icon: Home, label: 'Home' },
-    { id: 'explore', icon: Compass, label: 'Explore' },
-    { id: 'create', icon: PlusSquare, label: 'Create' },
-    { id: 'messages', icon: MessageCircle, label: 'Messages' },
-    { id: 'profile', icon: User, label: 'Profile' },
+    { id: 'feed', icon: Home, label: 'Pulse' },
+    { id: 'explore', icon: Compass, label: 'Discover' },
+    { id: 'create', icon: PlusSquare, label: 'Drop' },
+    { id: 'messages', icon: MessageCircle, label: 'Signals' },
+    { id: 'profile', icon: User, label: 'Identity' },
   ];
 
   return (
@@ -310,30 +330,28 @@ export function BottomNav({ activeTab, onTabChange, notificationCount, messageCo
             <motion.button
               key={id}
               onClick={() => onTabChange(id)}
-              className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
-                activeTab === id ? 'text-[#7aa2e3]' : 'text-[#5a7ab0] hover:text-[#7a9fd4]'
+              className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-colors min-w-[60px] ${
+                activeTab === id ? 'text-[#00f0ff]' : 'text-gray-500 hover:text-gray-300'
               }`}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.9 }}
+
             >
               {id === 'create' ? (
-                <div className="w-10 h-8 rounded-lg bg-gradient-to-r from-[#3b5ca8] to-[#4a7cc9] flex items-center justify-center">
-                  <Icon className="w-5 h-5 text-white" />
+                <div className="w-12 h-10 rounded-xl bg-gradient-to-r from-[#6a00ff] to-[#ff00ea] flex items-center justify-center shadow-[0_0_15px_rgba(106,0,255,0.4)]">
+                  <Icon className="w-6 h-6 text-white" />
                 </div>
               ) : id === 'profile' ? (
-                <div className={`p-0.5 rounded-full ${activeTab === id ? 'ring-2 ring-[#4a7cc9]' : ''}`}>
+                <div className={`p-0.5 rounded-full transition-all ${activeTab === id ? 'ring-2 ring-[#00f0ff] shadow-[0_0_10px_rgba(0,240,255,0.3)]' : ''}`}>
                   <Avatar />
                 </div>
               ) : (
                 <div className="relative">
-                  <Icon className={`w-6 h-6 ${activeTab === id ? 'text-[#7aa2e3]' : ''}`} />
+                  <Icon className={`w-6 h-6 ${activeTab === id ? 'text-[#00f0ff]' : ''}`} />
                   {id === 'messages' && messageCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#4a7cc9] text-white rounded-full text-[10px] font-medium flex items-center justify-center">
-                      {messageCount}
-                    </span>
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#00f0ff] rounded-full animate-pulse shadow-[0_0_8px_#00f0ff]" />
                   )}
                 </div>
               )}
-              <span className="text-[10px]">{label}</span>
             </motion.button>
           ))}
         </div>
@@ -344,6 +362,8 @@ export function BottomNav({ activeTab, onTabChange, notificationCount, messageCo
 
 export function TopHeader({ onNotificationClick, notificationCount }: TopHeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { markNotificationRead } = useApp();
 
   const handleNotificationClick = (notification: Notification) => {
@@ -355,33 +375,62 @@ export function TopHeader({ onNotificationClick, notificationCount }: TopHeaderP
     <>
       <header className="top-header">
         <div className="top-header-inner px-4 py-3 flex items-center justify-between">
-          <h1 
-            className="text-xl font-semibold tracking-[0.1em] gradient-text"
-            style={{ fontFamily: "'Literata', Georgia, serif" }}
-          >
-            UNSEEN
-          </h1>
-          <div className="flex items-center gap-2">
-            <button className="p-2 hover:bg-[#1e3a6e]/30 rounded-full transition-colors">
-              <Search className="w-5 h-5 text-[#7a9fd4]" />
-            </button>
-            <motion.button 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 hover:bg-[#1e3a6e]/30 rounded-full transition-colors relative"
-              whileTap={{ scale: 0.95 }}
+          {!isSearchExpanded && (
+            <h1 
+              className="text-xl font-bold tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-white to-[#6a00ff]"
+              style={{ fontFamily: "'Sora', 'Inter', sans-serif" }}
             >
-              <Bell className="w-5 h-5 text-[#7a9fd4]" />
-              {notificationCount > 0 && (
-                <motion.span 
-                  className="absolute top-1 right-1 w-4 h-4 bg-[#4a7cc9] text-white rounded-full text-[10px] font-medium flex items-center justify-center"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', damping: 15 }}
+              UNSEEN
+            </h1>
+          )}
+          
+          <div className={`flex items-center gap-2 ${isSearchExpanded ? 'w-full' : ''}`}>
+            <AnimatePresence>
+              {isSearchExpanded ? (
+                <motion.div 
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: '100%' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  className="flex-1 flex items-center relative"
                 >
-                  {notificationCount}
-                </motion.span>
+                  <Search className="w-4 h-4 absolute left-3 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search the unseen..."
+                    className="w-full bg-black/40 border border-[#6a00ff]/30 focus:border-[#00f0ff] rounded-full py-1.5 pl-9 pr-8 text-sm text-white focus:outline-none transition-colors hidden md:block lg:block sm:block xs:block"
+                    autoFocus
+                  />
+                  <button 
+                    onClick={() => setIsSearchExpanded(false)}
+                    className="absolute right-2 p-1 text-gray-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </motion.div>
+              ) : (
+                <button 
+                  onClick={() => setIsSearchExpanded(true)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <Search className="w-5 h-5 text-gray-400 hover:text-[#00f0ff] transition-colors" />
+                </button>
               )}
-            </motion.button>
+            </AnimatePresence>
+
+            {!isSearchExpanded && (
+              <motion.button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors relative"
+                whileTap={{ scale: 0.9 }}
+              >
+                <Bell className="w-5 h-5 text-gray-400 hover:text-[#00f0ff] transition-colors" />
+                {notificationCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#00f0ff] rounded-full animate-pulse shadow-[0_0_8px_#00f0ff]" />
+                )}
+              </motion.button>
+            )}
           </div>
         </div>
       </header>

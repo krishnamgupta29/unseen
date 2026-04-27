@@ -1,9 +1,9 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, ChevronDown, ChevronUp, Lock, Copy, Send, X } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, ChevronDown, ChevronUp, Lock, Copy, Send, X, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { Post, Profile } from '@/lib/mock-data';
+import { Post, Profile } from '@/lib/types';
 import { useApp } from '@/context/AppContext';
 import { CommentsPanel } from './CommentsPanel';
 
@@ -11,6 +11,29 @@ interface PostCardProps {
   post: Post;
   onProfileClick: (profileId: string) => void;
   onShare?: (post: Post) => void;
+}
+
+function getRelativeTime(timestampRaw: string): string {
+  if (!timestampRaw || timestampRaw === 'Just now') return 'Just now';
+
+  let past: Date;
+  if (timestampRaw.includes(':') && !timestampRaw.includes('-') && !timestampRaw.includes('/')) {
+    const parts = timestampRaw.split(':');
+    past = new Date();
+    past.setHours(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2] || '0'), 0);
+  } else {
+    past = new Date(timestampRaw);
+  }
+
+  const diffSeconds = Math.floor((new Date().getTime() - past.getTime()) / 1000);
+  if (diffSeconds < 0) return 'Just now';
+  if (diffSeconds < 60) return `${diffSeconds} sec ago`;
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
 }
 
 function Avatar({ profile, size = 'md' }: { profile: Profile; size?: 'sm' | 'md' | 'lg' }) {
@@ -62,18 +85,9 @@ function ShareModal({ post, isOpen, onClose }: { post: Post; isOpen: boolean; on
           </button>
         </div>
         <div className="p-4 space-y-3">
-          <button
-            onClick={handleCopyLink}
-            className="w-full flex items-center gap-3 p-4 rounded-xl bg-[#142240]/50 hover:bg-[#1a2d50]/60 transition-colors border border-[#1e3a6e]/20"
-          >
-            <div className="w-10 h-10 rounded-full bg-[#2a4d8f]/30 flex items-center justify-center">
-              <Copy className="w-5 h-5 text-[#7aa2e3]" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="font-medium text-sm text-[#e0eaff]">{copied ? 'Link copied!' : 'Copy link'}</p>
-              <p className="text-xs text-[#5a7ab0]">Share privately with anyone</p>
-            </div>
-          </button>
+          <div className="w-full flex items-center justify-center p-4 bg-[#142240]/30 rounded-xl mb-4 border border-[#1e3a6e]/20 text-center">
+            <p className="text-xs text-[#7a9fd4]">Sharing is restricted to your inner circle on Unseen.</p>
+          </div>
           <button className="w-full flex items-center gap-3 p-4 rounded-xl bg-[#142240]/50 hover:bg-[#1a2d50]/60 transition-colors border border-[#1e3a6e]/20">
             <div className="w-10 h-10 rounded-full bg-[#2a4d8f]/30 flex items-center justify-center">
               <Send className="w-5 h-5 text-[#7aa2e3]" />
@@ -149,7 +163,7 @@ export function PostCard({ post, onProfileClick, onShare }: PostCardProps) {
               <p className="text-[#e0eaff] font-medium text-sm group-hover:text-[#7aa2e3] transition-colors">
                 {profile.displayName}
               </p>
-              <p className="text-[#5a7ab0] text-xs">@{profile.username} · {post.timestamp}</p>
+              <p className="text-[#5a7ab0] text-xs">@{profile.username} · {getRelativeTime(post.timestamp)}</p>
             </div>
           </button>
           <button className="p-2 hover:bg-[#1e3a6e]/30 rounded-full transition-colors opacity-50 hover:opacity-100">
@@ -157,7 +171,7 @@ export function PostCard({ post, onProfileClick, onShare }: PostCardProps) {
           </button>
         </div>
 
-        <div className="mb-5">
+        <div className="mb-5 cursor-pointer" onClick={(e) => { e.stopPropagation(); setShowComments(true); }}>
           <p className="post-content text-[15px]">{displayContent}</p>
           {shouldTruncate && (
             <button
@@ -241,18 +255,18 @@ interface FeedProps {
 }
 
 export function Feed({ onProfileClick }: FeedProps) {
-  const { posts, userPosts } = useApp();
-  const allPosts = [...userPosts, ...posts].filter(p => p.type === 'text');
+  const { posts, refreshFeed } = useApp();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const allPosts = posts.filter(p => !p.type || p.type === 'text');
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshFeed();
+    setTimeout(() => setIsRefreshing(false), 500); // Visual feedback
+  };
 
   return (
-    <div className="space-y-2">
-      <div className="text-center py-4 mb-2">
-        <p className="text-xs text-[#3b5998] flex items-center justify-center gap-2">
-          <span className="w-8 h-[1px] bg-[#1e3a6e]/40" />
-          Yaha shor nahi hai
-          <span className="w-8 h-[1px] bg-[#1e3a6e]/40" />
-        </p>
-      </div>
+    <div className="space-y-2 relative pt-2">
       {allPosts.map((post, index) => (
         <motion.div
           key={post.id}

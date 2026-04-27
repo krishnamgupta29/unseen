@@ -3,8 +3,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Settings, Grid3X3, Bookmark, Heart, Lock, UserPlus, UserMinus, Share2, X, Users } from 'lucide-react';
 import { useState } from 'react';
-import { Profile } from '@/lib/mock-data';
+import { Conversation, Profile, Message, Post } from '@/lib/types';
 import { useApp } from '@/context/AppContext';
+import { PostCard } from './Feed';
 
 interface ProfilePageProps {
   profile: Profile;
@@ -20,10 +21,12 @@ function Avatar({ profile, size = 'lg' }: { profile: Profile; size?: 'sm' | 'md'
     xl: 'w-32 h-32',
   };
 
+  const gradient = profile.avatarGradient || 'from-violet-600 via-purple-600 to-indigo-600';
+
   return (
-    <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br ${profile.avatarGradient} p-[3px] flex-shrink-0`}>
+    <div className={`${sizeClasses[size]} rounded-full bg-gradient-to-br ${gradient} p-[3px] flex-shrink-0 shadow-lg shadow-indigo-500/20`}>
       <div className="w-full h-full rounded-full bg-[#0d1526] flex items-center justify-center">
-        <div className={`w-[70%] h-[70%] rounded-full bg-gradient-to-br ${profile.avatarGradient} opacity-40 blur-[3px]`} />
+        <div className={`w-[70%] h-[70%] rounded-full bg-gradient-to-br ${gradient} opacity-40 blur-[3px]`} />
       </div>
     </div>
   );
@@ -115,7 +118,6 @@ export function ProfilePage({ profile, onBack, onSettingsClick }: ProfilePagePro
   const { 
     currentUser, 
     posts, 
-    userPosts, 
     isFollowing, 
     followProfile, 
     unfollowProfile,
@@ -132,9 +134,10 @@ export function ProfilePage({ profile, onBack, onSettingsClick }: ProfilePagePro
   const isOwnProfile = profile.id === currentUser.id || profile.id === 'me';
   const following = isFollowing(profile.id);
 
-  const profilePosts = isOwnProfile 
-    ? userPosts.filter(p => p.type === 'text')
-    : posts.filter(p => p.profileId === profile.id && p.type === 'text');
+  const profilePosts = posts.filter(p => 
+    (p.profileId === profile.id || (isOwnProfile && p.profileId === currentUser.id)) && 
+    (!p.type || p.type === 'text')
+  );
 
   const savedPostsList = getSavedPosts().filter(p => p.type === 'text');
 
@@ -180,98 +183,94 @@ export function ProfilePage({ profile, onBack, onSettingsClick }: ProfilePagePro
         <div className="flex items-start gap-5 mb-6">
           <Avatar profile={displayProfile} />
           <div className="flex-1 pt-2">
-            <h2 className="text-xl font-semibold mb-1 text-[#e0eaff]">{displayProfile.displayName}</h2>
-            <p className="text-[#5a7ab0] text-sm flex items-center gap-1">
-              <Lock className="w-3 h-3" />
-              Anonymous identity
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
+              <h2 className="text-2xl font-bold text-white tracking-wide">
+                {displayProfile.displayName || 'Anonymous Soul'}
+              </h2>
+              {!isOwnProfile && (
+                <motion.button
+                  onClick={handleFollowToggle}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold tracking-wider transition-all border ${
+                    following
+                      ? 'bg-transparent text-gray-400 border-gray-600 hover:text-white'
+                      : 'bg-gradient-to-r from-[#6a00ff] to-[#ff00ea] text-white border-transparent shadow-[0_0_15px_rgba(106,0,255,0.4)]'
+                  }`}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {following ? 'Following' : 'Follow'}
+                </motion.button>
+              )}
+            </div>
+            <p className="text-gray-500 text-sm flex items-center gap-1.5 uppercase tracking-widest font-mono text-[10px]">
+              <Lock className="w-3 h-3 text-[#00f0ff]" />
+              Ghost Identity
             </p>
             {displayProfile.moodTag && (
-              <p className="text-xs text-[#7aa2e3] mt-2">{displayProfile.moodTag}</p>
+              <p className="text-xs text-[#00f0ff] mt-2 inline-block px-2 py-1 rounded-md bg-[#00f0ff]/10 border border-[#00f0ff]/20">{displayProfile.moodTag}</p>
             )}
           </div>
         </div>
 
-        <p className="text-[#a0c4ff] mb-6 leading-relaxed text-[15px]">{displayProfile.bio}</p>
+        <p className="text-gray-300 mb-8 leading-relaxed text-[15px]">
+          {displayProfile.bio || 'A ghost in the machine.'}
+        </p>
 
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="text-center glass rounded-xl py-3.5 hover:bg-[#1e3a6e]/20 transition-colors cursor-default">
-            <p className="text-xl font-bold text-[#e0eaff]">{displayProfile.postsCount}</p>
-            <p className="text-xs text-[#5a7ab0]">Posts</p>
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="text-center relative group p-[1px] rounded-2xl overflow-hidden cursor-default">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#6a00ff] to-[#ff00ea] opacity-20 group-hover:opacity-50 transition-opacity" />
+            <div className="bg-black/60 backdrop-blur-md rounded-2xl py-4 border border-white/10 group-hover:border-white/20 transition-all relative z-10 flex flex-col items-center">
+              <p className="text-2xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">{displayProfile.postsCount}</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#00f0ff] mt-1 text-center truncate px-1">Drops</p>
+            </div>
           </div>
           <button 
             onClick={() => setShowFollowers(true)}
-            className="text-center glass rounded-xl py-3.5 hover:bg-[#1e3a6e]/30 transition-colors"
+            className="text-center relative group p-[1px] rounded-2xl overflow-hidden"
           >
-            <p className="text-xl font-bold text-[#e0eaff]">{displayProfile.followersCount}</p>
-            <p className="text-xs text-[#5a7ab0]">Followers</p>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#6a00ff] to-[#ff00ea] opacity-20 group-hover:opacity-50 transition-opacity" />
+            <div className="bg-black/60 backdrop-blur-md rounded-2xl py-4 border border-white/10 group-hover:border-white/20 transition-all relative z-10 flex flex-col items-center">
+              <p className="text-2xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">{displayProfile.followersCount}</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#00f0ff] mt-1 text-center truncate px-1">Observers</p>
+            </div>
           </button>
           <button 
             onClick={() => setShowFollowing(true)}
-            className="text-center glass rounded-xl py-3.5 hover:bg-[#1e3a6e]/30 transition-colors"
+            className="text-center relative group p-[1px] rounded-2xl overflow-hidden"
           >
-            <p className="text-xl font-bold text-[#e0eaff]">{displayProfile.followingCount}</p>
-            <p className="text-xs text-[#5a7ab0]">Following</p>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#6a00ff] to-[#ff00ea] opacity-20 group-hover:opacity-50 transition-opacity" />
+            <div className="bg-black/60 backdrop-blur-md rounded-2xl py-4 border border-white/10 group-hover:border-white/20 transition-all relative z-10 flex flex-col items-center">
+              <p className="text-2xl font-bold text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]">{displayProfile.followingCount}</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#00f0ff] mt-1 text-center truncate px-1">Observing</p>
+            </div>
           </button>
         </div>
 
-        {!isOwnProfile && (
-          <div className="hidden md:flex gap-3">
-            <motion.button
-              onClick={handleFollowToggle}
-              className={`flex-1 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-                following 
-                  ? 'bg-[#142240]/60 text-[#a0c4ff] border border-[#1e3a6e]/30 hover:bg-[#1a2d50]/70' 
-                  : 'bg-gradient-to-r from-[#3b5ca8] to-[#4a7cc9] text-white shadow-lg shadow-[#4a7cc9]/20'
-              }`}
-              whileTap={{ scale: 0.98 }}
-              whileHover={{ scale: 1.01 }}
-            >
-              {following ? (
-                <>
-                  <UserMinus className="w-4 h-4" />
-                  Following
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-4 h-4" />
-                  Follow
-                </>
-              )}
-            </motion.button>
-            <motion.button
-              className="px-6 py-3 rounded-xl bg-[#142240]/60 text-[#a0c4ff] border border-[#1e3a6e]/30 font-medium hover:bg-[#1a2d50]/70 transition-colors"
-              whileTap={{ scale: 0.98 }}
-            >
-              Message
-            </motion.button>
-          </div>
-        )}
       </div>
 
-      <div className="border-t border-[#1e3a6e]/15 sticky top-[57px] z-20 bg-[#0a0f1c]/95 backdrop-blur-sm">
+      <div className="border-t border-white/10 sticky top-[57px] z-20 bg-black/80 backdrop-blur-xl">
         <div className="flex">
           <button
             onClick={() => setActiveTab('posts')}
             className={`flex-1 py-4 flex items-center justify-center gap-2 border-b-2 transition-all ${
               activeTab === 'posts' 
-                ? 'border-[#4a7cc9] text-[#7aa2e3]' 
-                : 'border-transparent text-[#5a7ab0] hover:text-[#7a9fd4]'
+                ? 'border-[#00f0ff] text-[#00f0ff] drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]' 
+                : 'border-transparent text-gray-500 hover:text-gray-300'
             }`}
           >
             <Grid3X3 className="w-5 h-5" />
-            <span className="text-sm font-medium">Posts</span>
+            <span className="text-sm font-medium tracking-wide uppercase">Drops</span>
           </button>
           {isOwnProfile && (
             <button
               onClick={() => setActiveTab('saved')}
               className={`flex-1 py-4 flex items-center justify-center gap-2 border-b-2 transition-all ${
                 activeTab === 'saved' 
-                  ? 'border-[#4a7cc9] text-[#7aa2e3]' 
-                  : 'border-transparent text-[#5a7ab0] hover:text-[#7a9fd4]'
+                  ? 'border-[#00f0ff] text-[#00f0ff] drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]' 
+                  : 'border-transparent text-gray-500 hover:text-gray-300'
               }`}
             >
               <Bookmark className="w-5 h-5" />
-              <span className="text-sm font-medium">Saved</span>
+              <span className="text-sm font-medium tracking-wide uppercase">Vault</span>
             </button>
           )}
         </div>
@@ -290,23 +289,15 @@ export function ProfilePage({ profile, onBack, onSettingsClick }: ProfilePagePro
               )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {profilePosts.map((post, index) => (
                 <motion.div
                   key={post.id}
-                  className="glass rounded-2xl p-5 hover:bg-[#142240]/40 transition-colors"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.08 }}
                 >
-                  <p className="text-[#c4d9ff] leading-relaxed whitespace-pre-wrap">{post.content}</p>
-                  <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#1e3a6e]/10">
-                    <span className="text-xs text-[#5a7ab0]">{post.timestamp}</span>
-                    <span className="text-xs text-[#5a7ab0] flex items-center gap-1">
-                      <Heart className="w-3 h-3" /> {post.likes}
-                    </span>
-                    <span className="text-xs text-[#5a7ab0]">{post.comments} comments</span>
-                  </div>
+                  <PostCard post={post as Post} onProfileClick={handleProfileClick} />
                 </motion.div>
               ))}
             </div>
@@ -321,23 +312,15 @@ export function ProfilePage({ profile, onBack, onSettingsClick }: ProfilePagePro
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {savedPostsList.map((post, index) => (
                 <motion.div
                   key={post.id}
-                  className="glass rounded-2xl p-5 hover:bg-[#142240]/40 transition-colors"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.08 }}
                 >
-                  <p className="text-[#c4d9ff] leading-relaxed whitespace-pre-wrap">{post.content}</p>
-                  <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#1e3a6e]/10">
-                    <span className="text-xs text-[#5a7ab0]">{post.timestamp}</span>
-                    <span className="text-xs text-[#5a7ab0] flex items-center gap-1">
-                      <Heart className="w-3 h-3" /> {post.likes}
-                    </span>
-                    <span className="text-xs text-[#5a7ab0]">{post.comments} comments</span>
-                  </div>
+                  <PostCard post={post as Post} onProfileClick={handleProfileClick} />
                 </motion.div>
               ))}
             </div>
@@ -345,31 +328,7 @@ export function ProfilePage({ profile, onBack, onSettingsClick }: ProfilePagePro
         )}
       </div>
 
-      {!isOwnProfile && (
-        <div className="mobile-follow-fixed">
-          <motion.button
-            onClick={handleFollowToggle}
-            className={`w-full py-3.5 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
-              following 
-                ? 'bg-[#142240]/80 text-[#a0c4ff] border border-[#1e3a6e]/30' 
-                : 'bg-gradient-to-r from-[#3b5ca8] to-[#4a7cc9] text-white shadow-lg shadow-[#4a7cc9]/20'
-            }`}
-            whileTap={{ scale: 0.98 }}
-          >
-            {following ? (
-              <>
-                <UserMinus className="w-5 h-5" />
-                Following
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-5 h-5" />
-                Follow
-              </>
-            )}
-          </motion.button>
-        </div>
-      )}
+
 
       <FollowListModal
         isOpen={showFollowers}

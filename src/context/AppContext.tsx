@@ -7,7 +7,9 @@ import {
   Conversation, 
   Notification, 
   Message,
-  Comment,
+  Comment
+} from '@/lib/types';
+import {
   profiles as initialProfiles, 
   posts as initialPosts, 
   conversations as initialConversations, 
@@ -30,8 +32,7 @@ interface AppState {
   posts: Post[];
   conversations: Conversation[];
   notifications: Notification[];
-  currentUser: Profile;
-  userPosts: Post[];
+  currentUser: Profile | null;
   comments: Record<string, Comment[]>;
   theme: ThemeType;
   followingList: string[];
@@ -58,23 +59,75 @@ interface AppState {
   getComments: (postId: string) => Comment[];
   addComment: (postId: string, content: string, parentId?: string) => void;
   likeComment: (postId: string, commentId: string) => void;
+  login: (user: Profile) => void;
+  logout: () => void;
+  refreshFeed: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
-  const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
-  const [currentUser, setCurrentUser] = useState<Profile>(initialCurrentUser);
-  const [comments, setComments] = useState<Record<string, Comment[]>>(initialComments);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
+  const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [theme, setThemeState] = useState<ThemeType>('blue');
-  const [followingList, setFollowingList] = useState<string[]>(
-    initialProfiles.filter(p => p.isFollowing).map(p => p.id)
-  );
+  const [followingList, setFollowingList] = useState<string[]>([]);
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/init');
+        const data = await res.json();
+        if (data.users) setProfiles(data.users.map((u: any) => ({ ...u, id: u._id })));
+        if (data.posts) setPosts(data.posts.map((p: any) => ({ 
+          ...p, 
+          id: p._id, 
+          profileId: p.profileId?._id || p.profileId,
+          timestamp: new Date(p.createdAt || new Date()).toISOString(),
+          comments: p.comments?.length || (Array.isArray(p.comments) ? p.comments.length : typeof p.comments === 'number' ? p.comments : 0)
+        })));
+        // Add more mapping as needed
+      } catch (err) {
+        console.error("Failed to fetch data:", err);
+      }
+    };
+
+    fetchData();
+
+    // Auto-refresh interval (every 30s)
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const refreshFeed = useCallback(async () => {
+    try {
+      const res = await fetch('/api/init');
+      const data = await res.json();
+      if (data.posts) {
+        setPosts(data.posts.map((p: any) => ({ 
+          ...p, 
+          id: p._id, 
+          profileId: p.profileId?._id || p.profileId,
+          timestamp: new Date(p.createdAt || new Date()).toISOString(),
+          comments: p.comments?.length || (Array.isArray(p.comments) ? p.comments.length : typeof p.comments === 'number' ? p.comments : 0)
+        })));
+      }
+    } catch (err) {
+      console.error("Failed to refresh feed:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.remove('theme-blue', 'theme-purple', 'theme-teal', 'theme-rose', 'theme-emerald');
@@ -87,33 +140,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setThemeState(newTheme);
   }, []);
 
-  const followProfile = useCallback((profileId: string) => {
-    setProfiles(prev => prev.map(p => 
-      p.id === profileId 
-        ? { ...p, isFollowing: true, followersCount: p.followersCount + 1 }
-        : p
-    ));
-    setFollowingList(prev => [...prev, profileId]);
-    setCurrentUser(prev => ({ ...prev, followingCount: prev.followingCount + 1 }));
-  }, []);
+  const followProfile = useCallback(async (profileId: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch('/api/users/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ followerId: currentUser.id, targetId: profileId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFollowingList(prev => [...prev, profileId]);
+        setProfiles(prev => prev.map(p => 
+          p.id === profileId 
+            ? { ...p, followersCount: p.followersCount + 1 }
+            : p
+        ));
+        setCurrentUser(prev => prev ? { ...prev, followingCount: prev.followingCount + 1 } : null);
+      }
+    } catch (err) {
+      console.error("Follow failed:", err);
+    }
+  }, [currentUser]);
 
-  const unfollowProfile = useCallback((profileId: string) => {
-    setProfiles(prev => prev.map(p => 
-      p.id === profileId 
-        ? { ...p, isFollowing: false, followersCount: Math.max(0, p.followersCount - 1) }
-        : p
-    ));
-    setFollowingList(prev => prev.filter(id => id !== profileId));
-    setCurrentUser(prev => ({ ...prev, followingCount: Math.max(0, prev.followingCount - 1) }));
-  }, []);
+  const unfollowProfile = useCallback(async (profileId: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch('/api/users/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ followerId: currentUser.id, targetId: profileId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFollowingList(prev => prev.filter(id => id !== profileId));
+        setProfiles(prev => prev.map(p => 
+          p.id === profileId 
+            ? { ...p, followersCount: Math.max(0, p.followersCount - 1) }
+            : p
+        ));
+        setCurrentUser(prev => prev ? { ...prev, followingCount: Math.max(0, prev.followingCount - 1) } : null);
+      }
+    } catch (err) {
+      console.error("Unfollow failed:", err);
+    }
+  }, [currentUser]);
 
   const isFollowing = useCallback((profileId: string) => {
     return followingList.includes(profileId);
   }, [followingList]);
 
   const getFollowers = useCallback(() => {
-    return profiles.slice(0, 5);
-  }, [profiles]);
+    // In a real app, this would fetch from the server
+    // For now, let's return an empty list or filter by who is following 'me' if we had that data
+    return []; 
+  }, []);
 
   const getFollowing = useCallback(() => {
     return profiles.filter(p => followingList.includes(p.id));
@@ -123,25 +204,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts(prev => prev.map(p => 
       p.id === postId ? { ...p, isLiked: true, likes: p.likes + 1 } : p
     ));
-    setUserPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, isLiked: true, likes: p.likes + 1 } : p
-    ));
   }, []);
 
   const unlikePost = useCallback((postId: string) => {
     setPosts(prev => prev.map(p => 
       p.id === postId ? { ...p, isLiked: false, likes: Math.max(0, p.likes - 1) } : p
     ));
-    setUserPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, isLiked: false, likes: Math.max(0, p.likes - 1) } : p
-    ));
   }, []);
 
   const savePost = useCallback((postId: string) => {
     setPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, isSaved: true } : p
-    ));
-    setUserPosts(prev => prev.map(p => 
       p.id === postId ? { ...p, isSaved: true } : p
     ));
     setSavedPosts(prev => [...prev, postId]);
@@ -151,27 +223,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts(prev => prev.map(p => 
       p.id === postId ? { ...p, isSaved: false } : p
     ));
-    setUserPosts(prev => prev.map(p => 
-      p.id === postId ? { ...p, isSaved: false } : p
-    ));
     setSavedPosts(prev => prev.filter(id => id !== postId));
   }, []);
 
   const getSavedPosts = useCallback(() => {
-    return [...posts, ...userPosts].filter(p => savedPosts.includes(p.id));
-  }, [posts, userPosts, savedPosts]);
+    return posts.filter(p => savedPosts.includes(p.id));
+  }, [posts, savedPosts]);
 
-  const addPost = useCallback((post: Omit<Post, 'id' | 'timestamp' | 'likes' | 'comments'>) => {
-    const newPost: Post = {
-      ...post,
-      id: `user-${Date.now()}`,
-      timestamp: 'Just now',
-      likes: 0,
-      comments: 0,
-    };
-    setUserPosts(prev => [newPost, ...prev]);
-    setCurrentUser(prev => ({ ...prev, postsCount: prev.postsCount + 1 }));
-  }, []);
+  const addPost = useCallback(async (postData: Omit<Post, 'id' | 'timestamp' | 'likes' | 'comments'>) => {
+    try {
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...postData, userId: currentUser.id }),
+      });
+      const newPost = await res.json();
+      if (res.ok) {
+        setPosts(prev => [{ ...newPost, id: newPost._id, timestamp: 'Just now' }, ...prev]);
+        setCurrentUser(prev => prev ? { ...prev, postsCount: (prev.postsCount || 0) + 1 } : null);
+      }
+    } catch (err) {
+      console.error("Failed to add post:", err);
+    }
+  }, [currentUser]);
 
   const addMessage = useCallback((
     conversationId: string, 
@@ -220,19 +294,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getProfile = useCallback((id: string): Profile | undefined => {
-    if (id === 'me') return currentUser;
+    if (id === 'me' || id === currentUser?.id) return currentUser || undefined;
     return profiles.find(p => p.id === id);
   }, [profiles, currentUser]);
-
-  const getPostsByProfile = useCallback((profileId: string): Post[] => {
-    if (profileId === 'me') return userPosts;
-    const profilePosts = posts.filter(p => p.profileId === profileId);
-    return profileId === 'me' ? [...userPosts, ...profilePosts] : profilePosts;
-  }, [posts, userPosts]);
 
   const getConversation = useCallback((id: string): Conversation | undefined => {
     return conversations.find(c => c.id === id);
   }, [conversations]);
+
+  const getPostsByProfile = useCallback((profileId: string): Post[] => {
+    return posts.filter(p => p.profileId === profileId);
+  }, [posts]);
 
   const getComments = useCallback((postId: string): Comment[] => {
     return comments[postId] || [];
@@ -255,9 +327,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPosts(prev => prev.map(p =>
       p.id === postId ? { ...p, comments: p.comments + 1 } : p
     ));
-    setUserPosts(prev => prev.map(p =>
-      p.id === postId ? { ...p, comments: p.comments + 1 } : p
-    ));
   }, []);
 
   const likeComment = useCallback((postId: string, commentId: string) => {
@@ -271,6 +340,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const login = useCallback((user: Profile) => {
+    const fixedUser = { ...user, followingCount: user.followingCount || 0 };
+    setCurrentUser(fixedUser);
+    localStorage.setItem('user', JSON.stringify(fixedUser));
+  }, []);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+    localStorage.removeItem('user');
+  }, []);
+
   return (
     <AppContext.Provider value={{
       profiles,
@@ -278,7 +358,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       conversations,
       notifications,
       currentUser,
-      userPosts,
       comments,
       theme,
       followingList,
@@ -305,6 +384,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       getComments,
       addComment,
       likeComment,
+      login,
+      logout,
+      refreshFeed,
     }}>
       {children}
     </AppContext.Provider>

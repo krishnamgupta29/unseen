@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --color-unseen-900: #10002b;
+  --color-unseen-800: #240046;
+  --color-unseen-700: #3c096c;
+  --color-unseen-600: #5a189a;
+  --color-unseen-500: #7b2cbf;
+  --color-unseen-400: #9d4edd;
+  --color-unseen-300: #c77dff;
+  --color-unseen-200: #e0aaff;
+  
+  --font-inter: var(--font-inter), sans-serif;
+  --font-poppins: var(--font-poppins), sans-serif;
+  --font-satoshi: 'Satoshi', sans-serif;
+  
+  --animate-fade-in: fade-in 0.5s ease-out forwards;
+  --animate-glow: glow 2s infinite alternate;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow {
+  from { box-shadow: 0 0 10px #7b2cbf, 0 0 20px #5a189a; }
+  to { box-shadow: 0 0 20px #c77dff, 0 0 30px #9d4edd; }
+}
+
+:root {
+  --background: #080016;
+  --foreground: #ffffff;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter);
+  overflow-x: hidden;
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: rgba(36, 0, 70, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(199, 125, 255, 0.15);
+}
+.glass-glow:hover {
+  box-shadow: 0 0 20px rgba(123, 44, 191, 0.4);
+}
+
+/* Universal Scrollbar Hiding (entire app/website, all scrollable containers, all devices) */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Telegram/WhatsApp style cyber grid dot pattern */
+.chat-pattern {
+  background-color: #080016;
+  background-image: 
+    radial-gradient(rgba(157, 78, 221, 0.07) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(157, 78, 221, 0.04) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}

@@ -1,0 +1,305 @@
+import { Response } from 'express';
+import Post from '../models/Post';
+import User from '../models/User';
+import UserInteraction from '../models/UserInteraction';
+import Follower from '../models/Follower';
+import { AuthRequest } from '../middlewares/auth';
+import { createNotification } from '../services/notificationService';
+import { detectSpamPost } from '../services/moderationAI';
+import { detectFeedMode, buildUserContext, rankPosts } from '../services/feedAlgorithm';
+import { getOnlineUsers, getActiveConnectionCount, broadcastEvent } from '../services/socketManager';
+
+const PAGE_SIZE = 20;
+
+// ─── GET /api/feed ─────────────────────────────────────────────────────────
+export const getFeed = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const mode = (req.query.mode as string) || detectFeedMode();
+    const page = parseInt(req.query.page as string) || 1;
+    const skip = (page - 1) * PAGE_SIZE;
+
+    // Build user context from interaction history
+    let userMoods: string[] = [];
+    let userHashtags: string[] = [];
+    let followedAuthors: string[] = [];
+
+    if (userId) {
+      // Get recent 100 interactions for personalization
+      const interactions = await UserInteraction.find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean();
+
+      const moodCounts: Record<string, number> = {};
+      const hashtagCounts: Record<string, number> = {};
+
+      for (const i of interactions) {
+        if (i.moodTag) moodCounts[i.moodTag] = (moodCounts[i.moodTag] || 0) + 1;
+        for (const tag of i.hashtags) {
+          hashtagCounts[tag] = (hashtagCounts[tag] || 0) + 1;
+        }
+      }
+
+      userMoods = Object.entries(moodCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([mood]) => mood);
+
+      userHashtags = Object.entries(hashtagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([tag]) => tag);
+
+      // Get followed authors
+      const follows = await Follower.find({ followerId: userId }).lean();
+      followedAuthors = follows.map((f: any) => f.followingId.toString());
+    }
+
+    const ctx = buildUserContext(
+      followedAuthors,
+      userMoods,
+      userHashtags,
+      mode as any
+    );
+
+    // Fetch candidate posts
+    let query: any = { isDeleted: false, moderationStatus: { $ne: 'removed' } };
+
+    if (mode === 'following' && followedAuthors.length > 0) {
+      query.author = { $in: followedAuthors };
+    } else if (mode === 'trending') {
+      const sixHoursAgo = new Date(Date.now() - 6 * 3600000);
+      query.createdAt = { $gte: sixHoursAgo };
+    }
+
+    const candidatePosts = await Post.find(query)
+      .sort({ createdAt: -1 })
+      .limit(200) // Score from 200 candidates
+      .populate('author', 'username displayName avatarColor')
+      .lean();
+
+    // Rank using algorithm
+    const ranked = rankPosts(candidatePosts as any, ctx);
+    const paginated = ranked.slice(skip, skip + PAGE_SIZE);
+
+    // Populate user-specific interactions
+    if (userId) {
+      const postIds = paginated.map((p: any) => p._id);
+      
+      const likes = await UserInteraction.find({ userId, postId: { $in: postIds }, interactionType: 'like' }).lean();
+      const saves = await UserInteraction.find({ userId, postId: { $in: postIds }, interactionType: 'save' }).lean();
+      
+      const likedPostIds = new Set(likes.map(l => l.postId?.toString()).filter(Boolean));
+      const savedPostIds = new Set(saves.map(s => s.postId?.toString()).filter(Boolean));
+      const followedAuthorIds = new Set(followedAuthors);
+
+      for (const post of paginated) {
+        (post as any).isLiked = likedPostIds.has(post._id.toString());
+        (post as any).isSaved = savedPostIds.has(post._id.toString());
+        if ((post as any).author) {
+          (post as any).author.isFollowing = followedAuthorIds.has((post as any).author._id.toString());
+        }
+      }
+    }
+
+    res.json({
+      posts: paginated,
+      page,
+      hasMore: ranked.length > skip + PAGE_SIZE,
+      mode,
+      total: ranked.length,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── POST /api/feed/interact ───────────────────────────────────────────────
+export const recordInteraction = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Auth required' });
+
+    const { postId, interactionType, readDurationMs } = req.body;
+
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    const updates: Record<string, any> = {};
+
+    // Toggle logic for likes and saves
+    if (interactionType === 'like' || interactionType === 'save') {
+      const existing = await UserInteraction.findOne({ userId, postId, interactionType });
+      
+      if (existing) {
+        // Unlike or Unsave
+        await UserInteraction.deleteOne({ _id: existing._id });
+        if (interactionType === 'like') {
+          updates.$inc = { likesCount: -1 };
+        }
+        if (interactionType === 'save') updates.$inc = { savesCount: -1 };
+      } else {
+        // Like or Save
+        await UserInteraction.create({
+          userId,
+          postId,
+          authorId: post.author,
+          interactionType,
+          moodTag: post.moodTag,
+          hashtags: post.hashtags,
+          readDurationMs: readDurationMs || 0,
+        });
+        if (interactionType === 'like') {
+          updates.$inc = { likesCount: 1 };
+          // Create notification for like
+          await createNotification(post.author?.toString(), 'LIKE', userId, postId);
+        }
+        if (interactionType === 'save') updates.$inc = { savesCount: 1 };
+      }
+    } else {
+      // Normal interactions (view, share, comment)
+      await UserInteraction.create({
+        userId,
+        postId,
+        authorId: post.author,
+        interactionType,
+        moodTag: post.moodTag,
+        hashtags: post.hashtags,
+        readDurationMs: readDurationMs || 0,
+      });
+
+      if (interactionType === 'comment') updates.$inc = { commentsCount: 1 };
+      else if (interactionType === 'view') updates.$inc = { viewsCount: 1 };
+      else if (interactionType === 'share') updates.$inc = { repostsCount: 1 };
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const updated = await Post.findByIdAndUpdate(postId, updates, { new: true });
+      if (updated) {
+        // Recalculate engagement score
+        const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
+          (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
+        await Post.findByIdAndUpdate(postId, { engagementScore: E });
+      }
+    }
+
+    res.json({ message: 'Interaction recorded' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── GET /api/feed/trending-tags ─────────────────────────────────────────
+export const getTrendingTags = async (_req: AuthRequest, res: Response) => {
+  try {
+    const since = new Date(Date.now() - 24 * 3600000);
+    const result = await Post.aggregate([
+      { $match: { createdAt: { $gte: since }, isDeleted: false, moodTag: { $exists: true, $ne: '' } } },
+      { $group: { _id: '$moodTag', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+    ]);
+    res.json(result.map(r => ({ tag: r._id, count: r.count })));
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── POST /api/feed/posts ─────────────────────────────────────────────────
+export const createPost = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id!;
+    const { content, moodTag } = req.body;
+    const modResult = (req as any).moderationResult;
+
+    if (detectSpamPost(userId, content)) {
+      return res.status(429).json({ message: 'You are posting too fast. Please wait.' });
+    }
+
+    // Extract hashtags
+    const hashtags = (content.match(/#(\w+)/g) || []).map((t: string) => t.slice(1).toLowerCase());
+
+    const post = await Post.create({
+      author: userId,
+      content,
+      moodTag: moodTag || undefined,
+      hashtags,
+      toxicityScore: modResult?.toxicityScore || 0,
+      isFlagged: modResult?.isFlagged || false,
+      moderationStatus: modResult?.isFlagged ? 'review' : 'clear',
+    });
+
+    const populated = await post.populate('author', 'username displayName avatarColor');
+
+    res.status(201).json(populated);
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── GET /api/feed/stats ───────────────────────────────────────────────────
+export const getNetworkStats = async (_req: AuthRequest, res: Response) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalPosts = await Post.countDocuments({ isDeleted: false });
+    
+    // Get real-time active socket connections for Live Shadows
+    const activeUsersCount = getActiveConnectionCount();
+    
+    res.json({
+      totalUsers,
+      totalPosts,
+      activeUsers: activeUsersCount > 0 ? activeUsersCount : 1, // ensure at least 1 is shown
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── GET /api/feed/posts/:id ───────────────────────────────────────────────
+export const getPostById = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const post = await Post.findOne({ _id: req.params.id, isDeleted: false })
+      .populate('author', 'username displayName avatarColor')
+      .lean();
+    
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    
+    // Populate user-specific interactions
+    if (userId) {
+      const liked = await UserInteraction.findOne({ userId, postId: post._id, interactionType: 'like' }).lean();
+      const saved = await UserInteraction.findOne({ userId, postId: post._id, interactionType: 'save' }).lean();
+      (post as any).isLiked = !!liked;
+      (post as any).isSaved = !!saved;
+    }
+    
+    res.json(post);
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── DELETE /api/feed/posts/:id ───────────────────────────────────────────────
+export const deletePost = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (post.author?.toString() !== userId) return res.status(403).json({ message: 'Forbidden' });
+    await Post.findByIdAndDelete(postId);
+    // also delete interactions related to this post
+    await UserInteraction.deleteMany({ postId });
+    
+    // Broadcast post deletion to all clients in real-time
+    broadcastEvent('post:deleted', { postId });
+    
+    res.json({ message: 'Post permanently deleted' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

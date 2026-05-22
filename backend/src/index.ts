@@ -115,7 +115,7 @@ if (MONGO_URI) {
     .connect(MONGO_URI)
     .then(() => {
       console.log('[DB] MongoDB connected');
-      server.listen(PORT, '127.0.0.1', () => console.log(`[Server] Running on http://127.0.0.1:${PORT}`));
+      server.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));
     })
     .catch((err) => {
       console.error('[DB] Connection error:', err);
@@ -123,7 +123,7 @@ if (MONGO_URI) {
     });
 } else {
   console.warn('[DB] No MONGO_URI provided — starting without database.');
-  server.listen(PORT, '127.0.0.1', undefined, () => console.log(`[Server] Running on http://127.0.0.1:${PORT} (no DB)`));
+  server.listen(PORT, () => console.log(`[Server] Running on port ${PORT} (no DB)`));
 }
 
 export default app;

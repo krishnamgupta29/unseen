@@ -2,14 +2,14 @@
 
 import { Settings, Grid, Bookmark, X, Edit3, Shield, UserPlus, Info, Check, Loader2, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import PostCard from '@/components/PostCard';
 import { useAppContext } from '@/context/AppContext';
 import Header from '@/components/layout/Header';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { users, auth } from '@/lib/api';
 
-export default function ProfilePage() {
+function ProfileContent() {
   const router = useRouter();
   const { currentUser, logout, updateCurrentUser, isLoading: authLoading } = useAppContext();
   const searchParams = useSearchParams();
@@ -509,5 +509,13 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-unseen-400" /></div>}>
+      <ProfileContent />
+    </Suspense>
   );
 }

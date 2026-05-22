@@ -3,10 +3,7 @@
  * BASE already includes /api (from .env.local)
  */
 
-const isBrowser = typeof window !== 'undefined';
-const BASE = isBrowser 
-  ? `http://${window.location.hostname}:5001/api` 
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api');
+const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
 
 // ─── Token management ──────────────────────────────────────────────────────
 let accessToken: string | null =

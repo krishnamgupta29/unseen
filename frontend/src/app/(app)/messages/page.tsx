@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 import { Search, Send, ChevronLeft, MessageSquare, Loader2, Heart, MoreHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Header from '@/components/layout/Header';
 import { useAppContext } from '@/context/AppContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -162,7 +162,7 @@ function PostCardWrapper({ postId }: { postId: string }) {
   return <PostCard post={post} />;
 }
 
-export default function MessagesPage() {
+function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentUser } = useAppContext();
@@ -629,5 +629,13 @@ export default function MessagesPage() {
         </motion.div>
       )}
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-unseen-400" /></div>}>
+      <MessagesContent />
+    </Suspense>
   );
 }

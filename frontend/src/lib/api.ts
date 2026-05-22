@@ -156,7 +156,7 @@ export const feed = {
     apiFetch<{ tag: string; count: number }[]>('/feed/trending-tags'),
 
   getNetworkStats: () =>
-    apiFetch<{ totalUsers: number; totalPosts: number; onlineUsers?: number }>('/feed/stats'),
+    apiFetch<{ totalUsers: number; totalPosts: number; activeUsers?: number }>('/feed/stats'),
 
   getPostById: (id: string) =>
     apiFetch<any>(`/feed/posts/${id}`),

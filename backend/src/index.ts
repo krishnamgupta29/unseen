@@ -93,6 +93,13 @@ app.use('/api/comments', commentsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'Backend running successfully',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',

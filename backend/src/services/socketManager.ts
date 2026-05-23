@@ -15,9 +15,10 @@ const connectedUsers = new Map<string, ConnectedUser>();
 let ioInstance: SocketServer | null = null;
 
 export function initSocket(server: HTTPServer): SocketServer {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const io = new SocketServer(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+      origin: [frontendUrl, 'http://localhost:3000', 'http://localhost:3001'],
       credentials: true,
     },
     transports: ['websocket', 'polling'],

@@ -139,12 +139,13 @@ function issueTokens(userId: string, username: string, role: string) {
 }
 
 function setRefreshCookie(res: Response, refreshToken: string) {
+  const isProd = process.env.NODE_ENV === 'production';
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'strict',
     maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
-    path: '/api/auth/refresh',
+    path: '/',
   });
 }
 
@@ -369,7 +370,7 @@ export const logout = async (req: Request, res: Response) => {
     if (token) {
       await RefreshToken.deleteOne({ token });
     }
-    res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+    res.clearCookie('refreshToken', { path: '/' });
     res.json({ message: 'Logged out successfully.' });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });

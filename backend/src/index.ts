@@ -24,10 +24,20 @@ const app = express();
 const server = createServer(app);
 
 // ── CORS ────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Mirror the request origin to allow all local/network addresses with credentials
-    callback(null, origin || 'http://localhost:3000');
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(o => origin.startsWith(o))) {
+      return callback(null, origin);
+    }
+    callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

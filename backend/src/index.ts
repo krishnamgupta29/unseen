@@ -61,6 +61,8 @@ app.use(helmet({
   xssFilter: true,
   noSniff: true,
   referrerPolicy: { policy: 'no-referrer' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: false,
 }));
 
 app.use(additionalSecurityHeaders);

@@ -3,7 +3,7 @@
  * BASE already includes /api (from .env.local)
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+const BASE = process.env.NODE_ENV === 'production' ? 'https://unseen-s9h8.onrender.com/api' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api');
 
 // ─── Token management ──────────────────────────────────────────────────────
 let accessToken: string | null =

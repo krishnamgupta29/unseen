@@ -73,13 +73,13 @@ export default function LandingPage() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.8, duration: 0.8 }}
-          className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6 mt-10"
+          className="grid grid-cols-2 gap-4 mt-10 w-full max-w-lg px-4"
         >
-          <Link href="/signup" className="w-full sm:w-auto px-8 py-4 rounded-full bg-gradient-to-r from-unseen-600 to-unseen-800 text-white font-semibold text-lg hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] transition-all transform hover:scale-105">
+          <Link href="/signup" className="px-4 py-3.5 rounded-full bg-gradient-to-r from-unseen-600 to-unseen-800 text-white font-semibold text-sm md:text-lg hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] transition-all transform hover:scale-105 text-center flex items-center justify-center">
             Join Unseen
           </Link>
-          <a href="/unseen.apk" download className="w-full sm:w-auto px-8 py-4 rounded-full glass glass-glow text-white font-semibold text-lg transition-all flex items-center justify-center gap-2">
-            <Download className="w-5 h-5" /> Download APK
+          <a href="/unseen.apk" download className="px-4 py-3.5 rounded-full glass glass-glow text-white font-semibold text-sm md:text-lg transition-all flex items-center justify-center gap-2 text-center">
+            <Download className="w-4 h-4 md:w-5 md:h-5" /> Download APK
           </a>
         </motion.div>
       </section>
@@ -88,13 +88,13 @@ export default function LandingPage() {
       <section className="py-20 px-6 md:px-12 relative z-10 flex flex-col items-center max-w-7xl mx-auto">
         <h2 className="text-3xl md:text-5xl font-poppins font-bold mb-16 text-center">Experience the Unseen</h2>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 w-full">
+        <div className="grid grid-cols-2 gap-8 w-full">
           {/* Feature 1 */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group"
+            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-1"
           >
             <div className="absolute top-0 right-0 w-64 h-64 bg-unseen-600/10 rounded-full blur-3xl -z-10 group-hover:bg-unseen-500/20 transition-colors" />
             <Shield className="w-12 h-12 text-unseen-300 mb-6" />
@@ -110,7 +110,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group"
+            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-1"
           >
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-unseen-800/20 rounded-full blur-3xl -z-10 group-hover:bg-unseen-700/30 transition-colors" />
             <Lock className="w-12 h-12 text-unseen-400 mb-6" />
@@ -125,7 +125,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group lg:col-span-2"
+            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-2"
           >
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-unseen-900/30 rounded-full blur-[100px] -z-10" />
             <div className="flex flex-col md:flex-row items-center gap-8">

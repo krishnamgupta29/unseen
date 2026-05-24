@@ -59,11 +59,36 @@ export default function PostCard({ post: initialPost }: { post: any }) {
         setIsDeleted(true);
       }
     };
+    
+    const handleCommentCreated = (data: { postId: string; comment: any }) => {
+      if (data.postId === post._id) {
+        setComments(prev => {
+          // Avoid duplicate comments in state (e.g. from optimistic render)
+          if (prev.some(c => c._id === data.comment._id || (c.isOptimistic && c.content === data.comment.content && c.author._id === data.comment.author._id))) {
+            return prev.map(c => (c.isOptimistic && c.content === data.comment.content && c.author._id === data.comment.author._id) ? data.comment : c);
+          }
+          return [data.comment, ...prev];
+        });
+        setPost((p: any) => ({ ...p, commentsCount: p.commentsCount + 1 }));
+      }
+    };
+
+    const handleCommentDeleted = (data: { postId: string; commentId: string }) => {
+      if (data.postId === post._id) {
+        setComments(prev => prev.filter(c => c._id !== data.commentId));
+        setPost((p: any) => ({ ...p, commentsCount: Math.max(0, p.commentsCount - 1) }));
+      }
+    };
+
     socket.on('post:deleted', handlePostDeleted);
+    socket.on('comment:created', handleCommentCreated);
+    socket.on('comment:deleted', handleCommentDeleted);
     
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       socket.off('post:deleted', handlePostDeleted);
+      socket.off('comment:created', handleCommentCreated);
+      socket.off('comment:deleted', handleCommentDeleted);
     };
   }, [post._id]);
 
@@ -145,16 +170,60 @@ export default function PostCard({ post: initialPost }: { post: any }) {
   if (isDeleted || !author) return null;
 
   const handlePostComment = async () => {
-    if (!commentText.trim()) return;
+    if (!commentText.trim() || !currentUser) return;
+    
+    const textToSend = commentText.trim();
+    const parentId = replyingTo?._id;
+    const tempId = `temp-${Date.now()}`;
+    
+    const optimisticComment = {
+      _id: tempId,
+      author: {
+        _id: currentUser.id,
+        username: currentUser.username,
+        displayName: currentUser.displayName,
+        avatarColor: currentUser.avatarColor,
+      },
+      post: post._id,
+      parentComment: parentId,
+      content: textToSend,
+      likesCount: 0,
+      isLiked: false,
+      createdAt: new Date().toISOString(),
+      isOptimistic: true,
+    };
+    
+    // Optimistic UI updates
+    setComments(prev => [optimisticComment, ...prev]);
+    setPost((p: any) => ({ ...p, commentsCount: p.commentsCount + 1 }));
+    setCommentText('');
+    setReplyingTo(null);
+    
     try {
-      const newComment = await commentsApi.create(post._id, commentText.trim(), replyingTo?._id);
-      
-      setComments([newComment, ...comments]);
-      setPost((p: any) => ({ ...p, commentsCount: p.commentsCount + 1 }));
-      setCommentText('');
-      setReplyingTo(null);
+      const realComment = await commentsApi.create(post._id, textToSend, parentId);
+      // Replace optimistic comment with real comment
+      setComments(prev => prev.map(c => c._id === tempId ? realComment : c));
     } catch (e) {
       console.error(e);
+      // Revert if failed
+      setComments(prev => prev.filter(c => c._id !== tempId));
+      setPost((p: any) => ({ ...p, commentsCount: Math.max(0, p.commentsCount - 1) }));
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    // Optimistic remove
+    const originalComments = [...comments];
+    setComments(prev => prev.filter(c => c._id !== commentId));
+    setPost((p: any) => ({ ...p, commentsCount: Math.max(0, p.commentsCount - 1) }));
+    
+    try {
+      await commentsApi.delete(commentId);
+    } catch (e) {
+      console.error(e);
+      // Revert on error
+      setComments(originalComments);
+      setPost((p: any) => ({ ...p, commentsCount: originalComments.length }));
     }
   };
 
@@ -170,27 +239,52 @@ export default function PostCard({ post: initialPost }: { post: any }) {
       await commentsApi.like(commentId);
     } catch (e) {
       console.error(e);
-      // Revert if failed (ignoring for brevity here)
     }
   };
 
+  const likeLockRef = useRef(false);
   const toggleLike = async () => {
+    if (likeLockRef.current) return;
+    
+    const nextIsLiked = !isLiked;
+    setIsLiked(nextIsLiked);
+    setPost((p: any) => ({ ...p, likesCount: Math.max(0, p.likesCount + (nextIsLiked ? 1 : -1)) }));
+    
+    likeLockRef.current = true;
     try {
       await feed.interact(post._id, 'like');
-      setIsLiked(!isLiked);
-      setPost((p: any) => ({ ...p, likesCount: p.likesCount + (isLiked ? -1 : 1) }));
     } catch (e) {
       console.error(e);
+      // Revert
+      setIsLiked(isLiked);
+      setPost((p: any) => ({ ...p, likesCount: Math.max(0, p.likesCount + (isLiked ? 1 : -1)) }));
+    } finally {
+      setTimeout(() => {
+        likeLockRef.current = false;
+      }, 300);
     }
   };
 
+  const saveLockRef = useRef(false);
   const toggleSave = async () => {
+    if (saveLockRef.current) return;
+    
+    const nextIsSaved = !isSaved;
+    setIsSaved(nextIsSaved);
+    setPost((p: any) => ({ ...p, savesCount: Math.max(0, p.savesCount + (nextIsSaved ? 1 : -1)) }));
+    
+    saveLockRef.current = true;
     try {
       await feed.interact(post._id, 'save');
-      setIsSaved(!isSaved);
-      setPost((p: any) => ({ ...p, savesCount: p.savesCount + (isSaved ? -1 : 1) }));
     } catch (e) {
       console.error(e);
+      // Revert
+      setIsSaved(isSaved);
+      setPost((p: any) => ({ ...p, savesCount: Math.max(0, p.savesCount + (isSaved ? 1 : -1)) }));
+    } finally {
+      setTimeout(() => {
+        saveLockRef.current = false;
+      }, 300);
     }
   };
 
@@ -496,6 +590,14 @@ export default function PostCard({ post: initialPost }: { post: any }) {
                           >
                             Reply
                           </button>
+                          {currentUser?.id === c.author?._id && (
+                            <button 
+                              onClick={() => handleDeleteComment(c._id)}
+                              className="text-[10px] font-medium text-red-500/80 hover:text-red-400 transition-colors flex items-center gap-0.5"
+                            >
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </button>
+                          )}
                         </div>
                         {c.parentComment && (
                           <div className="text-[10px] text-unseen-500 mt-1">Replying to a comment</div>

@@ -28,22 +28,22 @@ export default function TermsPage() {
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Terms Section List */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
+          <div className="lg:col-span-7 grid grid-cols-2 gap-6">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <BookOpen className="text-unseen-400" /> 1. Acceptance of Terms
               </h2>
-              <p className="leading-relaxed text-gray-400">
+              <p className="leading-relaxed text-gray-400 text-sm md:text-base">
                 By accessing and using Unseen, you agree to comply with and be bound by these Terms of Service. If you do not agree with any part of these terms, you may not use our platform.
               </p>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <AlertTriangle className="text-unseen-400" /> 2. Community Guidelines
               </h2>
-              <p className="leading-relaxed mb-4 text-gray-400">While Unseen champions freedom of speech, we maintain a strict boundary against abuse to keep the community safe. You agree NOT to post:</p>
-              <ul className="list-disc pl-5 space-y-2 text-unseen-200">
+              <p className="leading-relaxed mb-4 text-gray-400 text-sm md:text-base">While Unseen champions freedom of speech, we maintain a strict boundary against abuse to keep the community safe. You agree NOT to post:</p>
+              <ul className="list-disc pl-5 space-y-2 text-unseen-200 text-xs md:text-sm">
                 <li>Hate speech or discriminatory content.</li>
                 <li>Threats of violence, self-harm, or targeted harassment.</li>
                 <li>Illegal content, including illicit material or piracy links.</li>
@@ -52,20 +52,20 @@ export default function TermsPage() {
               </ul>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <Scale className="text-unseen-400" /> 3. Account Moderation
               </h2>
-              <p className="leading-relaxed text-gray-400">
+              <p className="leading-relaxed text-gray-400 text-sm md:text-base">
                 Our AI moderation pipeline analyzes public posts to ensure compliance with our guidelines. Unseen reserves the right to suspend or permanently terminate accounts that repeatedly violate these terms. If you are suspended, you may appeal via our contact channels.
               </p>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <ScrollText className="text-unseen-400" /> 4. Limitation of Liability
               </h2>
-              <p className="leading-relaxed text-gray-400">
+              <p className="leading-relaxed text-gray-400 text-sm md:text-base">
                 Unseen is provided "as is". We are not liable for the content posted by users, though we actively moderate to maintain a safe environment. We do not guarantee uninterrupted platform availability.
               </p>
             </div>

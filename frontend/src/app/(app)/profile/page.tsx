@@ -8,6 +8,7 @@ import { useAppContext } from '@/context/AppContext';
 import Header from '@/components/layout/Header';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { users, auth } from '@/lib/api';
+import { getSocket } from '@/lib/socketClient';
 
 function ProfileContent() {
   const router = useRouter();
@@ -31,6 +32,28 @@ function ProfileContent() {
   const [loadingNetwork, setLoadingNetwork] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
 
+  // Load cached profile data on mount to bypass loading spinner
+  useEffect(() => {
+    if (isOwnProfile && typeof window !== 'undefined') {
+      const cachedProfile = localStorage.getItem('cached_own_profile');
+      const cachedPosts = localStorage.getItem('cached_own_posts');
+      if (cachedProfile) {
+        try {
+          const profile = JSON.parse(cachedProfile);
+          setProfileUser(profile);
+          setEditForm({
+            displayName: profile.displayName || '',
+            bio: profile.bio || ''
+          });
+          if (cachedPosts) {
+            setProfilePosts(JSON.parse(cachedPosts));
+          }
+          setLoading(false);
+        } catch (_) {}
+      }
+    }
+  }, [isOwnProfile]);
+
   useEffect(() => {
     if (profileIdToFetch) {
       fetchProfileData();
@@ -39,7 +62,66 @@ function ProfileContent() {
     }
   }, [profileIdToFetch, authLoading, isOwnProfile, currentUser, router]);
 
-  // Silent 5-second poll — refreshes follower/following counts live
+  // Real-time follow counts and sync via sockets
+  useEffect(() => {
+    const socket = getSocket();
+    const handleFollowUpdate = (data: { followerId: string, followingId: string, isFollowing: boolean, followersCount: number, followingCount: number }) => {
+      if (profileUser && profileUser._id === data.followingId) {
+        setProfileUser((prev: any) => {
+          if (!prev) return prev;
+          const update: any = {
+            ...prev,
+            followersCount: data.followersCount,
+          };
+          if (currentUser && data.followerId === currentUser.id) {
+            update.isFollowing = data.isFollowing;
+          }
+          return update;
+        });
+      }
+      
+      if (profileUser && profileUser._id === data.followerId) {
+        setProfileUser((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            followingCount: data.followingCount,
+          };
+        });
+      }
+
+      if (currentUser && data.followerId === currentUser.id) {
+        updateCurrentUser({ followingCount: data.followingCount });
+        const cached = localStorage.getItem('cached_own_profile');
+        if (cached) {
+          try {
+            const p = JSON.parse(cached);
+            p.followingCount = data.followingCount;
+            localStorage.setItem('cached_own_profile', JSON.stringify(p));
+          } catch (_) {}
+        }
+      }
+      
+      if (currentUser && data.followingId === currentUser.id) {
+        updateCurrentUser({ followersCount: data.followersCount });
+        const cached = localStorage.getItem('cached_own_profile');
+        if (cached) {
+          try {
+            const p = JSON.parse(cached);
+            p.followersCount = data.followersCount;
+            localStorage.setItem('cached_own_profile', JSON.stringify(p));
+          } catch (_) {}
+        }
+      }
+    };
+
+    socket.on('follow:update', handleFollowUpdate);
+    return () => {
+      socket.off('follow:update', handleFollowUpdate);
+    };
+  }, [profileUser, currentUser, isOwnProfile, updateCurrentUser]);
+
+  // Silent background poll fallback (increased to 15 seconds)
   useEffect(() => {
     if (!profileIdToFetch) return;
     const interval = setInterval(async () => {
@@ -47,17 +129,14 @@ function ProfileContent() {
         const uData = await users.getProfile(profileIdToFetch);
         setProfileUser((prev: any) => {
           if (!prev) return uData;
-          // Only update counts, preserve local UI state like isFollowing
           return {
             ...prev,
             followersCount: uData.followersCount,
             followingCount: uData.followingCount,
           };
         });
-      } catch (_) {
-        // silent
-      }
-    }, 5000);
+      } catch (_) {}
+    }, 15000);
     return () => clearInterval(interval);
   }, [profileIdToFetch]);
 
@@ -86,13 +165,22 @@ function ProfileContent() {
   }, [showNetworkModal, profileUser]);
 
   const fetchProfileData = async () => {
-    setLoading(true);
+    if (!profileUser) {
+      setLoading(true);
+    }
     try {
       const uData = await users.getProfile(profileIdToFetch!);
       setProfileUser(uData);
       setEditForm({ displayName: uData.displayName || '', bio: uData.bio || '' });
+      if (isOwnProfile && typeof window !== 'undefined') {
+        localStorage.setItem('cached_own_profile', JSON.stringify(uData));
+      }
+      
       const pData = await users.getPosts(profileIdToFetch!);
       setProfilePosts(pData.posts);
+      if (isOwnProfile && typeof window !== 'undefined') {
+        localStorage.setItem('cached_own_posts', JSON.stringify(pData.posts));
+      }
     } catch (e) {
       console.error(e);
     } finally {

@@ -173,7 +173,7 @@ export const signup = async (req: Request, res: Response) => {
       }
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const newUser = new User({
       username: finalUsername,
@@ -409,7 +409,7 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: 'Incorrect current password.' });
     }
 
-    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
     await user.save();
 
     res.json({ message: 'Password updated successfully.' });
@@ -523,7 +523,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     }
 
     // OTP is valid! Reset password
-    user.passwordHash = await bcrypt.hash(newPassword, 12);
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
     user.failedOtpAttempts = 0;

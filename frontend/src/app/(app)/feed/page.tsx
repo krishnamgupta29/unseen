@@ -14,6 +14,28 @@ const TABS: { id: FeedMode; label: string }[] = [
   { id: 'rising', label: 'Rising' },
 ];
 
+const PostSkeleton = () => (
+  <div className="p-6 border-b border-unseen-800/30 animate-pulse">
+    <div className="flex items-center space-x-3 mb-4">
+      <div className="w-10 h-10 rounded-full bg-unseen-900/60" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3 bg-unseen-800/50 rounded w-1/4" />
+        <div className="h-2 bg-unseen-800/30 rounded w-1/3" />
+      </div>
+    </div>
+    <div className="space-y-2 mb-6">
+      <div className="h-3 bg-unseen-800/50 rounded w-full" />
+      <div className="h-3 bg-unseen-800/50 rounded w-5/6" />
+      <div className="h-3 bg-unseen-800/30 rounded w-2/3" />
+    </div>
+    <div className="flex space-x-12">
+      <div className="h-4 bg-unseen-800/40 rounded w-12" />
+      <div className="h-4 bg-unseen-800/40 rounded w-12" />
+      <div className="h-4 bg-unseen-800/40 rounded w-12" />
+    </div>
+  </div>
+);
+
 export default function FeedPage() {
   const [activeTab, setActiveTab] = useState<FeedMode>('for_you');
   const [posts, setPosts] = useState<any[]>([]);
@@ -23,7 +45,17 @@ export default function FeedPage() {
   const [moodTag, setMoodTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Load cached posts on mount
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(`cached_feed_${activeTab}`);
+      if (cached) {
+        try {
+          setPosts(JSON.parse(cached));
+          setLoading(false);
+        } catch (_) {}
+      }
+    }
     fetchPosts();
   }, [activeTab]);
 
@@ -53,10 +85,16 @@ export default function FeedPage() {
   }, [activeTab]);
 
   const fetchPosts = async () => {
-    setLoading(true);
+    if (posts.length === 0) {
+      setLoading(true);
+    }
     try {
       const data = await feed.get(activeTab, 1);
-      setPosts(data.posts || []);
+      const fetched = data.posts || [];
+      setPosts(fetched);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`cached_feed_${activeTab}`, JSON.stringify(fetched));
+      }
     } catch (e: any) {
       if (e?.message !== 'Token expired.' && e?.message !== 'Authentication required.' && e?.message !== 'Invalid token.' && e?.message !== 'Unauthorized') {
         console.error('Failed to fetch posts', e);
@@ -129,10 +167,11 @@ export default function FeedPage() {
 
       {/* Feed List */}
       <div className="pb-24">
-        {loading ? (
-          <div className="p-8 text-center text-gray-500 flex flex-col items-center">
-            <Loader2 className="w-8 h-8 animate-spin mb-4 text-unseen-400" />
-            <p>Tuning into the void...</p>
+        {loading && posts.length === 0 ? (
+          <div className="space-y-1">
+            <PostSkeleton />
+            <PostSkeleton />
+            <PostSkeleton />
           </div>
         ) : posts.length === 0 ? (
           <div className="p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[300px]">

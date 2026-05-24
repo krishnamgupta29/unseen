@@ -29,9 +29,43 @@ export default function ContactPage() {
             Have a question, feedback, or need to report an issue? We're here to help maintain the Unseen ecosystem.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch mt-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 items-stretch mt-8">
+            {/* General Inquiries */}
+            <a 
+              href="mailto:useen3113@gmail.com?subject=General Inquiry" 
+              className="glass p-6 rounded-3xl border border-unseen-800/50 hover:border-unseen-500/55 hover:bg-unseen-950/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(157,78,221,0.15)] flex flex-col justify-center items-center text-center gap-4 block group cursor-pointer col-span-1"
+            >
+              <div className="bg-unseen-800 p-4 rounded-full shadow-[0_0_15px_rgba(157,78,221,0.3)] group-hover:bg-unseen-700 transition-colors">
+                <Mail className="w-8 h-8 text-unseen-300 group-hover:text-white transition-colors animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-xl group-hover:text-unseen-300 transition-colors">General Inquiries</h3>
+                <p className="text-sm text-gray-400 mt-1 font-mono">useen3113@gmail.com</p>
+                <p className="text-xs text-gray-500 mt-3 font-inter leading-relaxed max-w-[200px] mx-auto">
+                  Reach out for partnerships, support, or generic inquiries.
+                </p>
+              </div>
+            </a>
+            
+            {/* Appeals & Moderation */}
+            <a 
+              href="mailto:useen3113@gmail.com?subject=Appeal / Moderation" 
+              className="glass p-6 rounded-3xl border border-unseen-800/50 hover:border-unseen-500/55 hover:bg-unseen-950/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(157,78,221,0.15)] flex flex-col justify-center items-center text-center gap-4 block group cursor-pointer col-span-1"
+            >
+              <div className="bg-unseen-800 p-4 rounded-full shadow-[0_0_15px_rgba(157,78,221,0.3)] group-hover:bg-unseen-700 transition-colors">
+                <MessageCircle className="w-8 h-8 text-unseen-300 group-hover:text-white transition-colors" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-xl group-hover:text-unseen-300 transition-colors">Appeals & Moderation</h3>
+                <p className="text-sm text-gray-400 mt-1 font-mono">useen3113@gmail.com</p>
+                <p className="text-xs text-gray-500 mt-3 font-inter leading-relaxed max-w-[200px] mx-auto">
+                  Submit moderation appeal requests or content violations.
+                </p>
+              </div>
+            </a>
+
             {/* Contact Beacon Graphic */}
-            <div className="hidden md:flex relative w-full h-full min-h-[280px] items-center justify-center overflow-hidden rounded-3xl border border-unseen-800 bg-[#09031a]/45 shadow-2xl glass p-4">
+            <div className="flex relative w-full h-full min-h-[220px] md:min-h-[280px] items-center justify-center overflow-hidden rounded-3xl border border-unseen-800 bg-[#09031a]/45 shadow-2xl glass p-4 col-span-2 lg:col-span-1">
               {/* Circular signal pulses radiating outward */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(157,78,221,0.1)_0%,transparent_70%)]" />
               
@@ -73,40 +107,6 @@ export default function ContactPage() {
                 </span>
               </div>
             </div>
-
-            {/* General Inquiries */}
-            <a 
-              href="mailto:useen3113@gmail.com?subject=General Inquiry" 
-              className="glass p-6 rounded-3xl border border-unseen-800/50 hover:border-unseen-500/55 hover:bg-unseen-950/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(157,78,221,0.15)] flex flex-col justify-center items-center text-center gap-4 block group cursor-pointer"
-            >
-              <div className="bg-unseen-800 p-4 rounded-full shadow-[0_0_15px_rgba(157,78,221,0.3)] group-hover:bg-unseen-700 transition-colors">
-                <Mail className="w-8 h-8 text-unseen-300 group-hover:text-white transition-colors animate-pulse" />
-              </div>
-              <div>
-                <h3 className="font-bold text-white text-xl group-hover:text-unseen-300 transition-colors">General Inquiries</h3>
-                <p className="text-sm text-gray-400 mt-1 font-mono">useen3113@gmail.com</p>
-                <p className="text-xs text-gray-500 mt-3 font-inter leading-relaxed max-w-[200px] mx-auto">
-                  Reach out for partnerships, support, or generic inquiries.
-                </p>
-              </div>
-            </a>
-            
-            {/* Appeals & Moderation */}
-            <a 
-              href="mailto:useen3113@gmail.com?subject=Appeal / Moderation" 
-              className="glass p-6 rounded-3xl border border-unseen-800/50 hover:border-unseen-500/55 hover:bg-unseen-950/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(157,78,221,0.15)] flex flex-col justify-center items-center text-center gap-4 block group cursor-pointer"
-            >
-              <div className="bg-unseen-800 p-4 rounded-full shadow-[0_0_15px_rgba(157,78,221,0.3)] group-hover:bg-unseen-700 transition-colors">
-                <MessageCircle className="w-8 h-8 text-unseen-300 group-hover:text-white transition-colors" />
-              </div>
-              <div>
-                <h3 className="font-bold text-white text-xl group-hover:text-unseen-300 transition-colors">Appeals & Moderation</h3>
-                <p className="text-sm text-gray-400 mt-1 font-mono">useen3113@gmail.com</p>
-                <p className="text-xs text-gray-500 mt-3 font-inter leading-relaxed max-w-[200px] mx-auto">
-                  Submit moderation appeal requests or content violations.
-                </p>
-              </div>
-            </a>
           </div>
         </div>
       </div>

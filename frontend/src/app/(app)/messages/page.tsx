@@ -247,13 +247,26 @@ function MessagesContent() {
     }
   };
 
-  // 1. Fetch conversations on mount and poll
+  // 1. Fetch conversations on mount and socket events
   useEffect(() => {
     if (!currentUser) return;
     
     fetchConversations();
-    const interval = setInterval(fetchConversations, 8000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchConversations, 15000); // 15s fallback poll
+    
+    const socket = getSocket();
+    const handleRefreshConversations = () => {
+      fetchConversations();
+    };
+    
+    socket.on('message:receive', handleRefreshConversations);
+    socket.on('message:read', handleRefreshConversations);
+    
+    return () => {
+      clearInterval(interval);
+      socket.off('message:receive', handleRefreshConversations);
+      socket.off('message:read', handleRefreshConversations);
+    };
   }, [currentUser]);
 
   const fetchConversations = async () => {
@@ -288,17 +301,65 @@ function MessagesContent() {
     }
   }, [searchParams, currentUser]);
 
-  // 3. Load messages when activeChat changes
+  // 3. Load messages when activeChat changes and register socket listeners
   useEffect(() => {
-    if (!activeChat) {
+    if (!activeChat || !currentUser) {
       setMessages([]);
       return;
     }
     
     loadMessages();
-    const interval = setInterval(loadMessages, 5000);
-    return () => clearInterval(interval);
-  }, [activeChat]);
+    const interval = setInterval(loadMessages, 15000); // 15s fallback poll
+    
+    const socket = getSocket();
+    
+    const handleNewMessage = (msg: any) => {
+      if (activeChat && (msg.sender === activeChat._id || msg.receiver === activeChat._id)) {
+        setMessages(prev => {
+          if (prev.some(m => m._id === msg._id)) return prev;
+          if (msg.sender !== currentUser.id) {
+            playMessageSound();
+          }
+          return [...prev, msg];
+        });
+        
+        if (msg.sender === activeChat._id) {
+          socket.emit('message:read', { senderId: activeChat._id });
+        }
+      }
+    };
+    
+    const handleReactionAdd = (data: { messageId: string; emoji: string; userId: string }) => {
+      setMessages(prev => prev.map(m => {
+        if (m._id === data.messageId) {
+          const reactions = m.reactions ? [...m.reactions] : [];
+          const existingIndex = reactions.findIndex(r => r.userId === data.userId);
+          if (existingIndex > -1) {
+            reactions[existingIndex].emoji = data.emoji;
+          } else {
+            reactions.push({ userId: data.userId, emoji: data.emoji });
+          }
+          return { ...m, reactions };
+        }
+        return m;
+      }));
+    };
+    
+    const handleMessageRead = (data: { readBy: string }) => {
+      // Optional: handle read receipts in real-time
+    };
+
+    socket.on('message:receive', handleNewMessage);
+    socket.on('reaction:add', handleReactionAdd);
+    socket.on('message:read', handleMessageRead);
+
+    return () => {
+      clearInterval(interval);
+      socket.off('message:receive', handleNewMessage);
+      socket.off('reaction:add', handleReactionAdd);
+      socket.off('message:read', handleMessageRead);
+    };
+  }, [activeChat, currentUser]);
 
   const loadMessages = async () => {
     if (!activeChat) return;
@@ -428,9 +489,9 @@ function MessagesContent() {
       ) : (
         // Active Chat View
         <motion.div 
-          initial={{ x: 50, opacity: 0 }}
+          initial={{ x: 30, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          className="absolute inset-0 bg-[#080016] z-40 flex flex-col h-full"
+          className="fixed inset-0 md:relative z-[60] md:z-10 flex flex-col w-full h-full bg-[#080016]"
         >
           {/* Chat Header */}
           <div className="flex items-center justify-between p-4 border-b border-unseen-800/30 bg-[#080016]/95 backdrop-blur-md z-10">

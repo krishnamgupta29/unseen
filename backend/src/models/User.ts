@@ -71,6 +71,7 @@ const UserSchema: Schema = new Schema(
 // Indexes for performance
 UserSchema.index({ username: 1 });
 UserSchema.index({ email: 1 });
+UserSchema.index({ displayName: 1 });
 UserSchema.index({ trustScore: -1 });
 UserSchema.index({ createdAt: -1 });
 

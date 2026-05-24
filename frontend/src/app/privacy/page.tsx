@@ -28,21 +28,21 @@ export default function PrivacyPage() {
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Main Privacy Rules */}
-          <div className="lg:col-span-7 space-y-6">
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
+          <div className="lg:col-span-7 grid grid-cols-2 gap-6">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <EyeOff className="text-unseen-400" /> 1. The Philosophy of the Unseen
               </h2>
-              <p className="leading-relaxed text-gray-300">
+              <p className="leading-relaxed text-gray-300 text-sm md:text-base">
                 At Unseen, privacy is not just a feature; it is the entire foundation of our platform. We believe that true expression requires anonymity. Therefore, we collect as little data as possible, and what we do collect is protected with industry-standard encryption.
               </p>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <Lock className="text-unseen-400" /> 2. What We Collect
               </h2>
-              <ul className="list-disc pl-5 space-y-3 text-gray-300">
+              <ul className="list-disc pl-5 space-y-3 text-gray-300 text-sm md:text-base">
                 <li><strong>Email Address:</strong> Optional. Used solely for password recovery. It is not displayed publicly.</li>
                 <li><strong>Passwords:</strong> Hashed using bcrypt (12 rounds) and never stored in plain text.</li>
                 <li><strong>Content:</strong> Your posts and interactions.</li>
@@ -50,11 +50,11 @@ export default function PrivacyPage() {
               </ul>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-2">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <ShieldCheck className="text-unseen-400" /> 3. What We DON'T Collect
               </h2>
-              <ul className="list-disc pl-5 space-y-3 text-gray-300">
+              <ul className="list-disc pl-5 space-y-3 text-gray-300 text-sm md:text-base">
                 <li>We do not collect your real name.</li>
                 <li>We do not collect your phone number.</li>
                 <li>We do not track your location via GPS.</li>

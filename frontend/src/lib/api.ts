@@ -207,6 +207,7 @@ export const comments = {
   create: (postId: string, content: string, parentComment?: string) => 
     apiFetch<any>(`/comments/${postId}`, { method: 'POST', body: JSON.stringify({ content, parentComment }) }),
   like: (commentId: string) => apiFetch<{ message: string; isLiked: boolean }>(`/comments/${commentId}/like`, { method: 'POST' }),
+  delete: (commentId: string) => apiFetch<any>(`/comments/${commentId}`, { method: 'DELETE' }),
 };
 
 // ─── Notifications ─────────────────────────────────────────────────────────

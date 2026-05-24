@@ -108,9 +108,21 @@ export default function SignupPage() {
 
           <form onSubmit={handleSignup} className="space-y-5">
             {error && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-400 text-sm font-medium">
-                {error}
-              </div>
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="relative overflow-hidden p-4 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-950/40 via-purple-950/40 to-red-950/40 text-red-200 text-sm font-medium shadow-[0_0_15px_rgba(239,68,68,0.15)] flex items-start gap-2.5"
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 via-purple-500 to-red-500" />
+                <span className="flex-shrink-0 text-red-400 w-5 h-5 flex items-center justify-center font-bold border border-red-500/40 rounded-full text-xs bg-red-950/80 mt-0.5 font-mono">
+                  !
+                </span>
+                <div className="flex-1 leading-relaxed">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-red-400 block mb-0.5">Identity Alert</span>
+                  <p className="font-inter text-xs">{error}</p>
+                </div>
+              </motion.div>
             )}
             
             {/* Username */}
@@ -134,7 +146,7 @@ export default function SignupPage() {
                   <RefreshCw className="w-5 h-5 animate-spin-hover" />
                 </button>
               </div>
-              <p className="text-xs text-unseen-600 mt-2">Generated automatically. Tap refresh to roll a new identity.</p>
+              <p className="text-xs text-unseen-300 mt-2 whitespace-normal break-words leading-relaxed">Generated automatically. Tap refresh to roll a new identity.</p>
             </div>
 
             <div>

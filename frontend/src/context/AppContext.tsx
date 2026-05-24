@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, clearAccessToken, notifications as apiNotifications, users as apiUsers, messages as apiMessages } from '../lib/api';
 import { playNotificationSound } from '../lib/sound';
+import { getSocket } from '../lib/socketClient';
 
 export interface User {
   id: string;
@@ -104,8 +105,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (currentUser) {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 2000);
-      return () => clearInterval(interval);
+      const interval = setInterval(fetchNotifications, 10000); // 10s poll fallback
+      
+      const socket = getSocket();
+      const handleNewNotification = () => {
+        fetchNotifications();
+      };
+      
+      socket.on('message:receive', handleNewNotification);
+      socket.on('notification:new', handleNewNotification);
+      
+      return () => {
+        clearInterval(interval);
+        socket.off('message:receive', handleNewNotification);
+        socket.off('notification:new', handleNewNotification);
+      };
     } else {
       setNotifications([]);
     }

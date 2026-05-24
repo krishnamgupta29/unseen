@@ -5,6 +5,7 @@ import UserInteraction from '../models/UserInteraction';
 import { AuthRequest } from '../middlewares/auth';
 import mongoose from 'mongoose';
 import { createNotification } from '../services/notificationService';
+import { broadcastEvent } from '../services/socketManager';
 
 export const getComments = async (req: AuthRequest, res: Response) => {
   try {
@@ -72,6 +73,9 @@ export const createComment = async (req: AuthRequest, res: Response) => {
     // Fetch author details to return with comment
     await comment.populate('author', 'username displayName avatarColor');
 
+    // Broadcast comment creation event via sockets
+    broadcastEvent('comment:created', { postId, comment });
+
     // Return the new comment
     res.json(comment);
   } catch (error: any) {
@@ -103,6 +107,34 @@ export const toggleLikeComment = async (req: AuthRequest, res: Response) => {
       await Comment.findByIdAndUpdate(commentId, { $inc: { likesCount: 1 } });
       res.json({ message: 'Liked', isLiked: true });
     }
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+export const deleteComment = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ message: 'Auth required' });
+    const { commentId } = req.params;
+
+    const comment = await Comment.findById(commentId);
+    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+
+    // Verify ownership
+    if (comment.author.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Unauthorized to delete this comment' });
+    }
+
+    comment.isDeleted = true;
+    await comment.save();
+
+    // Decrement post comments count
+    await Post.findByIdAndUpdate(comment.post, { $inc: { commentsCount: -1 } });
+
+    // Broadcast comment deleted event via sockets
+    broadcastEvent('comment:deleted', { postId: comment.post.toString(), commentId });
+
+    res.json({ message: 'Comment deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

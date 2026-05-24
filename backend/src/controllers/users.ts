@@ -7,11 +7,13 @@ import UserInteraction from '../models/UserInteraction';
 import Report from '../models/Report';
 import mongoose from 'mongoose';
 import { createNotification } from '../services/notificationService';
+import { broadcastEvent } from '../services/socketManager';
 
 // ─── GET /api/users/:id ────────────────────────────────────────────────────
 export const getUserProfile = async (req: AuthRequest, res: Response) => {
   try {
-    const user = await User.findById(req.params.id).select('-passwordHash -loginAttempts -lockUntil').lean();
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('-passwordHash -loginAttempts -lockUntil').lean();
     if (!user || user.isSuspended) return res.status(404).json({ message: 'User not found' });
 
     // Check if the current user is following this profile
@@ -21,7 +23,21 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
       isFollowing = !!follow;
     }
 
-    res.json({ ...user, isFollowing });
+    // Get the ACTUAL up-to-date counts to prevent out-of-sync stuck states
+    const followersCount = await Follower.countDocuments({ following: user._id });
+    const followingCount = await Follower.countDocuments({ follower: user._id });
+
+    // If cached counts in user document are stale, update them silently
+    if (user.followersCount !== followersCount || user.followingCount !== followingCount) {
+      await User.findByIdAndUpdate(user._id, { followersCount, followingCount });
+    }
+
+    res.json({
+      ...user,
+      followersCount,
+      followingCount,
+      isFollowing
+    });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -77,18 +93,38 @@ export const toggleFollow = async (req: AuthRequest, res: Response) => {
 
     const existing = await Follower.findOne({ follower: followerId, following: followingId });
 
+    let isFollowing = false;
     if (existing) {
       await existing.deleteOne();
-      await User.findByIdAndUpdate(followingId, { $inc: { followersCount: -1 } });
-      await User.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
-      return res.json({ message: 'Unfollowed', isFollowing: false });
+      isFollowing = false;
     } else {
       await Follower.create({ follower: followerId, following: followingId });
-      await User.findByIdAndUpdate(followingId, { $inc: { followersCount: 1 } });
-      await User.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } });
       await createNotification(followingId, 'FOLLOW', followerId);
-      return res.json({ message: 'Followed', isFollowing: true });
+      isFollowing = true;
     }
+
+    // Enforce counts recalculation from the Follower collection to self-heal drifts
+    const followingUserFollowersCount = await Follower.countDocuments({ following: followingId });
+    await User.findByIdAndUpdate(followingId, { followersCount: followingUserFollowersCount });
+
+    const followerUserFollowingCount = await Follower.countDocuments({ follower: followerId });
+    await User.findByIdAndUpdate(followerId, { followingCount: followerUserFollowingCount });
+
+    // Broadcast the follow update to all clients in real-time
+    broadcastEvent('follow:update', {
+      followerId,
+      followingId,
+      isFollowing,
+      followersCount: followingUserFollowersCount,
+      followingCount: followerUserFollowingCount
+    });
+
+    return res.json({
+      message: isFollowing ? 'Followed' : 'Unfollowed',
+      isFollowing,
+      followersCount: followingUserFollowersCount,
+      followingCount: followerUserFollowingCount
+    });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

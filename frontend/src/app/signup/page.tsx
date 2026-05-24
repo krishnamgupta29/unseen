@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { setAccessToken } from '@/lib/api';
+import { setAccessToken, auth } from '@/lib/api';
 import { useAppContext } from '@/context/AppContext';
 import EmojiPicker from '@/components/EmojiPicker';
 const adjectives = ['Silent', 'Mystic', 'Hidden', 'Dark', 'Neon', 'Lunar', 'Cosmic', 'Shadow'];
@@ -40,23 +40,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const BASE = typeof window !== 'undefined' 
-        ? `http://${window.location.hostname}:5000/api` 
-        : 'http://localhost:5000/api';
-
-      const res = await fetch(`${BASE}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, displayName, password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        const errorMsg = data.errors && data.errors.length > 0
-          ? data.errors.map((err: any) => err.message).join('. ')
-          : (data.message || 'Signup failed');
-        throw new Error(errorMsg);
-      }
+      const data = await auth.signup(displayName, password, undefined, username);
 
       setAccessToken(data.accessToken);
       login(data.user);

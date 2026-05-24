@@ -3,10 +3,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const isBrowser = typeof window !== 'undefined';
-const SOCKET_URL = isBrowser
-  ? `http://${window.location.hostname}:5000`
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000');
+const rawUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+const SOCKET_URL = rawUrl.replace(/\/api$/, '').replace(/\/$/, '');
 
 let socket: Socket | null = null;
 

@@ -3,7 +3,15 @@
  * BASE already includes /api (from .env.local)
  */
 
-const BASE = process.env.NODE_ENV === 'production' ? 'https://unseen-s9h8.onrender.com/api' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api');
+const getApiUrl = () => {
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+  if (url.endsWith('/api')) {
+    return url;
+  }
+  return `${url.replace(/\/$/, '')}/api`;
+};
+
+const BASE = getApiUrl();
 
 // ─── Token management ──────────────────────────────────────────────────────
 let accessToken: string | null =
@@ -74,10 +82,10 @@ async function refreshAccessToken(): Promise<boolean> {
 
 // ─── Auth ──────────────────────────────────────────────────────────────────
 export const auth = {
-  signup: (displayName: string, password: string, email?: string) =>
+  signup: (displayName: string, password: string, email?: string, username?: string) =>
     apiFetch<{ accessToken: string; user: any }>('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ displayName, password, email }),
+      body: JSON.stringify({ displayName, password, email, username }),
     }),
 
   login: (username: string, password: string) =>

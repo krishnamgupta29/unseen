@@ -5,8 +5,9 @@ let socket: Socket | null = null;
 export const getSocket = (): Socket => {
   if (!socket) {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    const isProd = process.env.NODE_ENV === 'production';
-    socket = io(isProd ? 'https://unseen-s9h8.onrender.com' : (process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5001'), {
+    const rawUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+    const socketUrl = rawUrl.replace(/\/api$/, '').replace(/\/$/, '');
+    socket = io(socketUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
     });

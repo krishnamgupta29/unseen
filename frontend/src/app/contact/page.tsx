@@ -29,7 +29,7 @@ export default function ContactPage() {
             Have a question, feedback, or need to report an issue? We're here to help maintain the Unseen ecosystem.
           </p>
 
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 items-stretch mt-8">
+          <div className="grid grid-cols-1 min-[380px]:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch mt-8">
             {/* General Inquiries */}
             <a 
               href="mailto:useen3113@gmail.com?subject=General Inquiry" 
@@ -65,7 +65,7 @@ export default function ContactPage() {
             </a>
 
             {/* Contact Beacon Graphic */}
-            <div className="flex relative w-full h-full min-h-[220px] md:min-h-[280px] items-center justify-center overflow-hidden rounded-3xl border border-unseen-800 bg-[#09031a]/45 shadow-2xl glass p-4 col-span-2 lg:col-span-1">
+            <div className="flex relative w-full h-full min-h-[220px] md:min-h-[280px] items-center justify-center overflow-hidden rounded-3xl border border-unseen-800 bg-[#09031a]/45 shadow-2xl glass p-4 col-span-1 min-[380px]:col-span-2 lg:col-span-1">
               {/* Circular signal pulses radiating outward */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(157,78,221,0.1)_0%,transparent_70%)]" />
               

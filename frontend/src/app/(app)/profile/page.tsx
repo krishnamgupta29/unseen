@@ -9,6 +9,7 @@ import Header from '@/components/layout/Header';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { users, auth } from '@/lib/api';
 import { getSocket } from '@/lib/socketClient';
+import { useAppStore } from '@/lib/store';
 
 function ProfileContent() {
   const router = useRouter();
@@ -17,12 +18,18 @@ function ProfileContent() {
   const targetId = searchParams.get('id');
   
   const isOwnProfile = !targetId || targetId === currentUser?.id;
-  const profileIdToFetch = isOwnProfile ? currentUser?.id : targetId;
+  const profileIdToFetch = (isOwnProfile ? currentUser?.id : targetId) || '';
+ 
+  // Store-backed cached state selectors
+  const profileUser = useAppStore(state => state.profiles[profileIdToFetch]);
+  
+  const profilePostIds = useAppStore(state => state.feeds[`profile_${profileIdToFetch}`] || []);
+  const profilePosts = useAppStore(state => profilePostIds.map(id => state.posts[id]).filter(Boolean));
+  
+  const savedPostIds = useAppStore(state => state.feeds[`saved_${profileIdToFetch}`] || []);
+  const savedPosts = useAppStore(state => savedPostIds.map(id => state.posts[id]).filter(Boolean));
 
-  const [profileUser, setProfileUser] = useState<any>(null);
-  const [profilePosts, setProfilePosts] = useState<any[]>([]);
-  const [savedPosts, setSavedPosts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!profileUser);
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [showNetworkModal, setShowNetworkModal] = useState<'followers' | 'following' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -40,19 +47,20 @@ function ProfileContent() {
       if (cachedProfile) {
         try {
           const profile = JSON.parse(cachedProfile);
-          setProfileUser(profile);
+          useAppStore.getState().setProfile(profileIdToFetch, profile);
           setEditForm({
             displayName: profile.displayName || '',
             bio: profile.bio || ''
           });
           if (cachedPosts) {
-            setProfilePosts(JSON.parse(cachedPosts));
+            const postsParsed = JSON.parse(cachedPosts);
+            useAppStore.getState().setFeed(`profile_${profileIdToFetch}`, postsParsed);
           }
           setLoading(false);
         } catch (_) {}
       }
     }
-  }, [isOwnProfile]);
+  }, [isOwnProfile, profileIdToFetch]);
 
   useEffect(() => {
     if (profileIdToFetch) {
@@ -60,33 +68,22 @@ function ProfileContent() {
     } else if (isOwnProfile && currentUser === null && !authLoading) {
       router.push('/login');
     }
-  }, [profileIdToFetch, authLoading, isOwnProfile, currentUser, router]);
+  }, [profileIdToFetch, authLoading, isOwnProfile, currentUser]);
 
   // Real-time follow counts and sync via sockets
   useEffect(() => {
     const socket = getSocket();
     const handleFollowUpdate = (data: { followerId: string, followingId: string, isFollowing: boolean, followersCount: number, followingCount: number }) => {
       if (profileUser && profileUser._id === data.followingId) {
-        setProfileUser((prev: any) => {
-          if (!prev) return prev;
-          const update: any = {
-            ...prev,
-            followersCount: data.followersCount,
-          };
-          if (currentUser && data.followerId === currentUser.id) {
-            update.isFollowing = data.isFollowing;
-          }
-          return update;
+        useAppStore.getState().updateProfileLocal(data.followingId, {
+          followersCount: data.followersCount,
+          ...(currentUser && data.followerId === currentUser.id ? { isFollowing: data.isFollowing } : {})
         });
       }
       
       if (profileUser && profileUser._id === data.followerId) {
-        setProfileUser((prev: any) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            followingCount: data.followingCount,
-          };
+        useAppStore.getState().updateProfileLocal(data.followerId, {
+          followingCount: data.followingCount
         });
       }
 
@@ -119,7 +116,7 @@ function ProfileContent() {
     return () => {
       socket.off('follow:update', handleFollowUpdate);
     };
-  }, [profileUser, currentUser, isOwnProfile, updateCurrentUser]);
+  }, [profileUser, currentUser, updateCurrentUser]);
 
   // Silent background poll fallback (increased to 15 seconds)
   useEffect(() => {
@@ -127,13 +124,9 @@ function ProfileContent() {
     const interval = setInterval(async () => {
       try {
         const uData = await users.getProfile(profileIdToFetch);
-        setProfileUser((prev: any) => {
-          if (!prev) return uData;
-          return {
-            ...prev,
-            followersCount: uData.followersCount,
-            followingCount: uData.followingCount,
-          };
+        useAppStore.getState().updateProfileLocal(profileIdToFetch, {
+          followersCount: uData.followersCount,
+          followingCount: uData.followingCount,
         });
       } catch (_) {}
     }, 15000);
@@ -146,10 +139,10 @@ function ProfileContent() {
         setLoadingNetwork(true);
         try {
           if (showNetworkModal === 'followers') {
-            const data = await users.getFollowers(profileUser._id);
+            const data = await users.getFollowers(profileUser._id || profileUser.id);
             setNetworkUsers(data);
           } else if (showNetworkModal === 'following') {
-            const data = await users.getFollowing(profileUser._id);
+            const data = await users.getFollowing(profileUser._id || profileUser.id);
             setNetworkUsers(data);
           }
         } catch (e) {
@@ -169,15 +162,15 @@ function ProfileContent() {
       setLoading(true);
     }
     try {
-      const uData = await users.getProfile(profileIdToFetch!);
-      setProfileUser(uData);
+      const uData = await users.getProfile(profileIdToFetch);
+      useAppStore.getState().setProfile(profileIdToFetch, uData);
       setEditForm({ displayName: uData.displayName || '', bio: uData.bio || '' });
       if (isOwnProfile && typeof window !== 'undefined') {
         localStorage.setItem('cached_own_profile', JSON.stringify(uData));
       }
       
-      const pData = await users.getPosts(profileIdToFetch!);
-      setProfilePosts(pData.posts);
+      const pData = await users.getPosts(profileIdToFetch);
+      useAppStore.getState().setFeed(`profile_${profileIdToFetch}`, pData.posts);
       if (isOwnProfile && typeof window !== 'undefined') {
         localStorage.setItem('cached_own_posts', JSON.stringify(pData.posts));
       }
@@ -193,7 +186,7 @@ function ProfileContent() {
       const fetchSaved = async () => {
         try {
           const sData = await users.getSavedPosts(profileIdToFetch);
-          setSavedPosts(sData.posts);
+          useAppStore.getState().setFeed(`saved_${profileIdToFetch}`, sData.posts);
         } catch (e) {
           console.error(e);
         }
@@ -204,24 +197,11 @@ function ProfileContent() {
 
   const handleToggleFollow = async () => {
     if (!profileUser || followLoading) return;
-    // Optimistic instant update
-    const wasFollowing = profileUser.isFollowing;
-    setProfileUser((prev: any) => ({
-      ...prev,
-      isFollowing: !wasFollowing,
-      followersCount: prev.followersCount + (wasFollowing ? -1 : 1)
-    }));
     setFollowLoading(true);
     try {
-      await users.toggleFollow(profileUser._id);
+      await useAppStore.getState().toggleFollowUser(profileUser._id || profileUser.id, currentUser?.id);
     } catch (e) {
-      // Revert on error
       console.error(e);
-      setProfileUser((prev: any) => ({
-        ...prev,
-        isFollowing: wasFollowing,
-        followersCount: prev.followersCount + (wasFollowing ? 1 : -1)
-      }));
     } finally {
       setFollowLoading(false);
     }
@@ -231,7 +211,7 @@ function ProfileContent() {
     setSavingProfile(true);
     try {
       const updated = await users.updateProfile(editForm);
-      setProfileUser((prev: any) => ({ ...prev, ...updated }));
+      useAppStore.getState().updateProfileLocal(profileIdToFetch, updated);
       setShowEditModal(false);
     } catch (e) {
       console.error('Failed to update profile', e);
@@ -482,16 +462,11 @@ function ProfileContent() {
                               try {
                                 const res = await users.toggleFollow(u._id);
                                 setNetworkUsers(prev => prev.map(user => user._id === u._id ? { ...user, isFollowing: res.isFollowing } : user));
-                                setProfileUser((prev: any) => {
-                                  if (!prev) return prev;
-                                  if (isOwnProfile) {
-                                    return {
-                                      ...prev,
-                                      followingCount: prev.followingCount + (res.isFollowing ? 1 : -1)
-                                    };
-                                  }
-                                  return prev;
-                                });
+                                if (profileUser && isOwnProfile) {
+                                  useAppStore.getState().updateProfileLocal(profileIdToFetch, {
+                                    followingCount: Math.max(0, (profileUser.followingCount || 0) + (res.isFollowing ? 1 : -1))
+                                  });
+                                }
                               } catch (err) {}
                             }}
                             className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md bg-unseen-900 text-white border border-unseen-700 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/30"
@@ -505,16 +480,11 @@ function ProfileContent() {
                               try {
                                 const res = await users.toggleFollow(u._id);
                                 setNetworkUsers(prev => prev.map(user => user._id === u._id ? { ...user, isFollowing: res.isFollowing } : user));
-                                setProfileUser((prev: any) => {
-                                  if (!prev) return prev;
-                                  if (isOwnProfile) {
-                                    return {
-                                      ...prev,
-                                      followingCount: prev.followingCount + (res.isFollowing ? 1 : -1)
-                                    };
-                                  }
-                                  return prev;
-                                });
+                                if (profileUser && isOwnProfile) {
+                                  useAppStore.getState().updateProfileLocal(profileIdToFetch, {
+                                    followingCount: Math.max(0, (profileUser.followingCount || 0) + (res.isFollowing ? 1 : -1))
+                                  });
+                                }
                               } catch (err) {}
                             }}
                             className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md bg-white text-black hover:bg-gray-200"

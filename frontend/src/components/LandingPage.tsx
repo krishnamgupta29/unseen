@@ -88,7 +88,7 @@ export default function LandingPage() {
       <section className="py-20 px-6 md:px-12 relative z-10 flex flex-col items-center max-w-7xl mx-auto">
         <h2 className="text-3xl md:text-5xl font-poppins font-bold mb-16 text-center">Experience the Unseen</h2>
         
-        <div className="grid grid-cols-2 gap-8 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
           {/* Feature 1 */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
@@ -125,7 +125,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-2"
+            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-1 sm:col-span-2 lg:col-span-3"
           >
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-unseen-900/30 rounded-full blur-[100px] -z-10" />
             <div className="flex flex-col md:flex-row items-center gap-8">

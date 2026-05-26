@@ -5,6 +5,7 @@ import { Sparkles, Loader2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import PostCard from '@/components/PostCard';
 import { feed, FeedMode } from '@/lib/api';
+import { useAppStore } from '@/lib/store';
 
 const TABS: { id: FeedMode; label: string }[] = [
   { id: 'for_you', label: 'For You' },
@@ -37,13 +38,16 @@ const PostSkeleton = () => (
 );
 
 export default function FeedPage() {
-  const [activeTab, setActiveTab] = useState<FeedMode>('for_you');
-  const [posts, setPosts] = useState<any[]>([]);
+  const [activeTab] = useState<FeedMode>('for_you');
   const [loading, setLoading] = useState(true);
 
   const [postContent, setPostContent] = useState('');
   const [moodTag, setMoodTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Retrieve cached post IDs and objects from the Zustand store
+  const postIds = useAppStore(state => state.feeds[activeTab] || []);
+  const posts = useAppStore(state => postIds.map(id => state.posts[id]).filter(Boolean));
 
   // Load cached posts on mount
   useEffect(() => {
@@ -51,7 +55,8 @@ export default function FeedPage() {
       const cached = localStorage.getItem(`cached_feed_${activeTab}`);
       if (cached) {
         try {
-          setPosts(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          useAppStore.getState().setFeed(activeTab, parsed);
           setLoading(false);
         } catch (_) {}
       }
@@ -59,24 +64,21 @@ export default function FeedPage() {
     fetchPosts();
   }, [activeTab]);
 
-  // Silent background poll every 5 seconds — updates like/comment counts without spinner
+  // Silent background poll every 5 seconds — updates counts without spinner in the global cache
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
         const data = await feed.get(activeTab, 1);
         const freshPosts = data.posts || [];
-        // Merge fresh counts into existing posts without resetting local state
-        setPosts(prev => prev.map(p => {
-          const fresh = freshPosts.find((fp: any) => fp._id === p._id);
-          if (!fresh) return p;
-          return {
-            ...p,
-            likesCount: fresh.likesCount,
-            commentsCount: fresh.commentsCount,
-            viewCount: fresh.viewCount,
-            shareCount: fresh.shareCount,
-          };
-        }));
+        // Merge fresh counts into existing posts in the Zustand store
+        freshPosts.forEach((fp: any) => {
+          useAppStore.getState().updatePostLocal(fp._id, {
+            likesCount: fp.likesCount,
+            commentsCount: fp.commentsCount,
+            viewCount: fp.viewCount,
+            shareCount: fp.shareCount,
+          });
+        });
       } catch (_) {
         // Silent — don't show errors for background polling
       }
@@ -91,7 +93,7 @@ export default function FeedPage() {
     try {
       const data = await feed.get(activeTab, 1);
       const fetched = data.posts || [];
-      setPosts(fetched);
+      useAppStore.getState().setFeed(activeTab, fetched);
       if (typeof window !== 'undefined') {
         localStorage.setItem(`cached_feed_${activeTab}`, JSON.stringify(fetched));
       }
@@ -109,9 +111,8 @@ export default function FeedPage() {
     setIsSubmitting(true);
     try {
       const newPost = await feed.createPost(postContent, moodTag);
-      if (activeTab === 'for_you' || activeTab === 'following') {
-        setPosts(prev => [newPost, ...prev]);
-      }
+      // Prepend to current feed in store
+      useAppStore.getState().prependToFeed(activeTab, newPost);
       setPostContent('');
       setMoodTag('');
     } catch (e) {

@@ -2,17 +2,20 @@
 
 import { Heart, MessageCircle, Share, MoreHorizontal, Link as LinkIcon, Flag, Bookmark, Send, X, Loader2, Trash2, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { useRouter } from 'next/navigation';
 import { feed, users, comments as commentsApi, messages as messagesApi } from '@/lib/api';
 import { getSocket } from '@/lib/socketClient';
+import { useAppStore } from '@/lib/store';
 
-export default function PostCard({ post: initialPost }: { post: any }) {
+function PostCardComponent({ post: initialPost }: { post: any }) {
   const { currentUser } = useAppContext();
   const router = useRouter();
   
-  const [post, setPost] = useState(initialPost);
+  const storePost = useAppStore(state => state.posts[initialPost._id]);
+  const post = storePost || initialPost;
+  
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -22,9 +25,10 @@ export default function PostCard({ post: initialPost }: { post: any }) {
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [replyingTo, setReplyingTo] = useState<any>(null);
   
-  const [isLiked, setIsLiked] = useState(initialPost.isLiked || false);
-  const [isSaved, setIsSaved] = useState(initialPost.isSaved || false);
-  const [isFollowing, setIsFollowing] = useState(initialPost.author?.isFollowing || false);
+  const isLiked = post.isLiked || false;
+  const isSaved = post.isSaved || false;
+  const isFollowing = post.author?.isFollowing || false;
+  
   const [reportStatus, setReportStatus] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -44,7 +48,15 @@ export default function PostCard({ post: initialPost }: { post: any }) {
   const commentInputRef = useRef<HTMLInputElement>(null);
 
   const author = post.author;
-  const isSelf = currentUser?.id === author?._id;
+  const authorId = author?._id || author?.id || '';
+  const isSelf = currentUser?.id === authorId;
+
+  // Initialize post in store on mount
+  useEffect(() => {
+    if (initialPost && !storePost) {
+      useAppStore.getState().setPost(initialPost);
+    }
+  }, [initialPost, storePost]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -63,20 +75,19 @@ export default function PostCard({ post: initialPost }: { post: any }) {
     const handleCommentCreated = (data: { postId: string; comment: any }) => {
       if (data.postId === post._id) {
         setComments(prev => {
-          // Avoid duplicate comments in state (e.g. from optimistic render)
           if (prev.some(c => c._id === data.comment._id || (c.isOptimistic && c.content === data.comment.content && c.author._id === data.comment.author._id))) {
             return prev.map(c => (c.isOptimistic && c.content === data.comment.content && c.author._id === data.comment.author._id) ? data.comment : c);
           }
           return [data.comment, ...prev];
         });
-        setPost((p: any) => ({ ...p, commentsCount: p.commentsCount + 1 }));
+        useAppStore.getState().updatePostLocal(post._id, { commentsCount: post.commentsCount + 1 });
       }
     };
 
     const handleCommentDeleted = (data: { postId: string; commentId: string }) => {
       if (data.postId === post._id) {
         setComments(prev => prev.filter(c => c._id !== data.commentId));
-        setPost((p: any) => ({ ...p, commentsCount: Math.max(0, p.commentsCount - 1) }));
+        useAppStore.getState().updatePostLocal(post._id, { commentsCount: Math.max(0, post.commentsCount - 1) });
       }
     };
 
@@ -90,7 +101,7 @@ export default function PostCard({ post: initialPost }: { post: any }) {
       socket.off('comment:created', handleCommentCreated);
       socket.off('comment:deleted', handleCommentDeleted);
     };
-  }, [post._id]);
+  }, [post._id, post.commentsCount]);
 
   useEffect(() => {
     if (showShare && currentUser?.id) {
@@ -120,14 +131,13 @@ export default function PostCard({ post: initialPost }: { post: any }) {
       await feed.deletePost(post._id);
       setIsDeleted(true);
       setShowDeleteModal(false);
+      useAppStore.getState().removePostLocal(post._id);
     } catch (e) {
       console.error('Failed to delete post', e);
     } finally {
       setDeleting(false);
     }
   };
-
-
 
   const handleShare = () => {
     navigator.clipboard.writeText(`https://unseen-app.com/post/${post._id}`);
@@ -144,7 +154,7 @@ export default function PostCard({ post: initialPost }: { post: any }) {
     if (!reportReason.trim()) return;
     setReporting(true);
     try {
-      await users.report(author._id, { reason: reportReason.trim(), contentId: post._id, contentType: 'post' });
+      await users.report(authorId, { reason: reportReason.trim(), contentId: post._id, contentType: 'post' });
       setReportStatus("Whisper has been reported to the moderation systems.");
       setTimeout(() => setReportStatus(null), 4000);
       setShowReportModal(false);
@@ -195,40 +205,35 @@ export default function PostCard({ post: initialPost }: { post: any }) {
     
     // Optimistic UI updates
     setComments(prev => [optimisticComment, ...prev]);
-    setPost((p: any) => ({ ...p, commentsCount: p.commentsCount + 1 }));
+    useAppStore.getState().updatePostLocal(post._id, { commentsCount: post.commentsCount + 1 });
     setCommentText('');
     setReplyingTo(null);
     
     try {
       const realComment = await commentsApi.create(post._id, textToSend, parentId);
-      // Replace optimistic comment with real comment
       setComments(prev => prev.map(c => c._id === tempId ? realComment : c));
     } catch (e) {
       console.error(e);
-      // Revert if failed
       setComments(prev => prev.filter(c => c._id !== tempId));
-      setPost((p: any) => ({ ...p, commentsCount: Math.max(0, p.commentsCount - 1) }));
+      useAppStore.getState().updatePostLocal(post._id, { commentsCount: Math.max(0, post.commentsCount - 1) });
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    // Optimistic remove
     const originalComments = [...comments];
     setComments(prev => prev.filter(c => c._id !== commentId));
-    setPost((p: any) => ({ ...p, commentsCount: Math.max(0, p.commentsCount - 1) }));
+    useAppStore.getState().updatePostLocal(post._id, { commentsCount: Math.max(0, post.commentsCount - 1) });
     
     try {
       await commentsApi.delete(commentId);
     } catch (e) {
       console.error(e);
-      // Revert on error
       setComments(originalComments);
-      setPost((p: any) => ({ ...p, commentsCount: originalComments.length }));
+      useAppStore.getState().updatePostLocal(post._id, { commentsCount: originalComments.length });
     }
   };
 
   const toggleCommentLike = async (commentId: string) => {
-    // Optimistic update
     setComments(comments.map(c => {
       if (c._id === commentId) {
         return { ...c, isLiked: !c.isLiked, likesCount: c.likesCount + (c.isLiked ? -1 : 1) };
@@ -242,64 +247,17 @@ export default function PostCard({ post: initialPost }: { post: any }) {
     }
   };
 
-  const likeLockRef = useRef(false);
   const toggleLike = async () => {
-    if (likeLockRef.current) return;
-    
-    const nextIsLiked = !isLiked;
-    setIsLiked(nextIsLiked);
-    setPost((p: any) => ({ ...p, likesCount: Math.max(0, p.likesCount + (nextIsLiked ? 1 : -1)) }));
-    
-    likeLockRef.current = true;
-    try {
-      await feed.interact(post._id, 'like');
-    } catch (e) {
-      console.error(e);
-      // Revert
-      setIsLiked(isLiked);
-      setPost((p: any) => ({ ...p, likesCount: Math.max(0, p.likesCount + (isLiked ? 1 : -1)) }));
-    } finally {
-      setTimeout(() => {
-        likeLockRef.current = false;
-      }, 300);
-    }
+    await useAppStore.getState().toggleLikePost(post._id);
   };
 
-  const saveLockRef = useRef(false);
   const toggleSave = async () => {
-    if (saveLockRef.current) return;
-    
-    const nextIsSaved = !isSaved;
-    setIsSaved(nextIsSaved);
-    setPost((p: any) => ({ ...p, savesCount: Math.max(0, p.savesCount + (nextIsSaved ? 1 : -1)) }));
-    
-    saveLockRef.current = true;
-    try {
-      await feed.interact(post._id, 'save');
-    } catch (e) {
-      console.error(e);
-      // Revert
-      setIsSaved(isSaved);
-      setPost((p: any) => ({ ...p, savesCount: Math.max(0, p.savesCount + (isSaved ? 1 : -1)) }));
-    } finally {
-      setTimeout(() => {
-        saveLockRef.current = false;
-      }, 300);
-    }
+    await useAppStore.getState().toggleSavePost(post._id);
   };
 
   const handleToggleFollow = async () => {
-    // Optimistic instant flip
-    const prev = isFollowing;
-    setIsFollowing(!prev);
     setShowMenu(false);
-    try {
-      await users.toggleFollow(author._id);
-    } catch (e) {
-      // Revert on error
-      setIsFollowing(prev);
-      console.error(e);
-    }
+    await useAppStore.getState().toggleFollowUser(authorId, currentUser?.id);
   };
 
   const goToProfile = (userId: string) => {
@@ -336,7 +294,7 @@ export default function PostCard({ post: initialPost }: { post: any }) {
         )}
       </AnimatePresence>
       <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => goToProfile(author._id)}>
+        <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => goToProfile(authorId)}>
           <div className="relative flex-shrink-0">
             <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'} blur-md opacity-60`} />
             <div className={`relative w-10 h-10 rounded-full bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'} border-2 border-[#080016]`}>
@@ -736,3 +694,6 @@ export default function PostCard({ post: initialPost }: { post: any }) {
     </motion.div>
   );
 }
+
+const PostCard = memo(PostCardComponent);
+export default PostCard;

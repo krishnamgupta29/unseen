@@ -126,7 +126,7 @@ export default function AboutPage() {
           Our Core Values
         </h2>
         
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="adaptive-card-grid">
           <div className="glass p-8 rounded-2xl transition-all hover:bg-unseen-900/50 border border-unseen-800/30 col-span-1">
             <Shield className="w-10 h-10 text-unseen-400 mb-4 drop-shadow-[0_0_10px_rgba(157,78,221,0.8)]" />
             <h3 className="text-xl font-bold text-white mb-3">Absolute Privacy</h3>
@@ -137,7 +137,7 @@ export default function AboutPage() {
             <h3 className="text-xl font-bold text-white mb-3">Safe Spaces</h3>
             <p className="text-sm leading-relaxed text-gray-400">Freedom of speech doesn't mean freedom from consequences. Our AI moderation ensures the platform remains free from hate, bullying, and illegal content.</p>
           </div>
-          <div className="glass p-8 rounded-2xl transition-all hover:bg-unseen-900/50 border border-unseen-800/30 col-span-2 lg:col-span-1">
+          <div className="glass p-8 rounded-2xl transition-all hover:bg-unseen-900/50 border border-unseen-800/30 col-span-1 sm:col-span-2 lg:col-span-1">
             <Zap className="w-10 h-10 text-unseen-400 mb-4 drop-shadow-[0_0_10px_rgba(157,78,221,0.8)]" />
             <h3 className="text-xl font-bold text-white mb-3">Authentic Connection</h3>
             <p className="text-sm leading-relaxed text-gray-400">By removing the superficial layers of profiles and pictures, we help you connect with others on a purely emotional and intellectual level.</p>

@@ -361,30 +361,32 @@ class MainActivity : android.app.Activity() {
     }
 
     private fun isEmulator(): Boolean {
-        val brand = Build.BRAND ?: ""
-        val device = Build.DEVICE ?: ""
         val fingerprint = Build.FINGERPRINT ?: ""
         val hardware = Build.HARDWARE ?: ""
         val model = Build.MODEL ?: ""
         val manufacturer = Build.MANUFACTURER ?: ""
         val product = Build.PRODUCT ?: ""
+        val brand = Build.BRAND ?: ""
+        val device = Build.DEVICE ?: ""
 
+        // Only match well-known, specific emulator signatures — avoid broad checks
+        // that can accidentally match custom ROM physical devices (e.g. product.contains("sdk"))
         return (brand.startsWith("generic") && device.startsWith("generic"))
-                || fingerprint.startsWith("generic")
-                || fingerprint.startsWith("unknown")
+                || fingerprint.startsWith("generic/")
+                || fingerprint == "unknown"
                 || hardware.contains("goldfish")
                 || hardware.contains("ranchu")
                 || model.contains("google_sdk")
-                || model.contains("Emulator")
+                || model == "Emulator"
                 || model.contains("Android SDK built for x86")
                 || manufacturer.contains("Genymotion")
-                || product.contains("sdk_gphone")
-                || product.contains("google_sdk")
-                || product.contains("sdk")
-                || product.contains("sdk_x86")
+                || product == "sdk_gphone64_x86_64"
+                || product == "sdk_gphone_x86"
+                || product == "google_sdk"
+                || product == "sdk_x86"
                 || product.contains("vbox86p")
-                || product.contains("emulator")
-                || product.contains("simulator")
+                || product == "emulator"
+                || product == "simulator"
     }
 
     private fun dpToPx(dp: Int): Int {

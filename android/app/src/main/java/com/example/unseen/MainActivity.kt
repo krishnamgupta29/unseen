@@ -38,7 +38,7 @@ class MainActivity : android.app.Activity() {
     // Standard dev server IP for android emulator pointing to host localhost:3000
     private val devUrl = "http://10.0.2.2:3000"
     // Fallback production URL
-    private val prodUrl = "https://unseen-social.vercel.app"
+    private val prodUrl = "https://unseen-world.vercel.app"
     
     private var targetUrl = prodUrl
 
@@ -361,22 +361,30 @@ class MainActivity : android.app.Activity() {
     }
 
     private fun isEmulator(): Boolean {
-        return (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
-                || Build.FINGERPRINT.startsWith("generic")
-                || Build.FINGERPRINT.startsWith("unknown")
-                || Build.HARDWARE.contains("goldfish")
-                || Build.HARDWARE.contains("ranchu")
-                || Build.MODEL.contains("google_sdk")
-                || Build.MODEL.contains("Emulator")
-                || Build.MODEL.contains("Android SDK built for x86")
-                || Build.MANUFACTURER.contains("Genymotion")
-                || Build.PRODUCT.contains("sdk_gphone")
-                || Build.PRODUCT.contains("google_sdk")
-                || Build.PRODUCT.contains("sdk")
-                || Build.PRODUCT.contains("sdk_x86")
-                || Build.PRODUCT.contains("vbox86p")
-                || Build.PRODUCT.contains("emulator")
-                || Build.PRODUCT.contains("simulator")
+        val brand = Build.BRAND ?: ""
+        val device = Build.DEVICE ?: ""
+        val fingerprint = Build.FINGERPRINT ?: ""
+        val hardware = Build.HARDWARE ?: ""
+        val model = Build.MODEL ?: ""
+        val manufacturer = Build.MANUFACTURER ?: ""
+        val product = Build.PRODUCT ?: ""
+
+        return (brand.startsWith("generic") && device.startsWith("generic"))
+                || fingerprint.startsWith("generic")
+                || fingerprint.startsWith("unknown")
+                || hardware.contains("goldfish")
+                || hardware.contains("ranchu")
+                || model.contains("google_sdk")
+                || model.contains("Emulator")
+                || model.contains("Android SDK built for x86")
+                || manufacturer.contains("Genymotion")
+                || product.contains("sdk_gphone")
+                || product.contains("google_sdk")
+                || product.contains("sdk")
+                || product.contains("sdk_x86")
+                || product.contains("vbox86p")
+                || product.contains("emulator")
+                || product.contains("simulator")
     }
 
     private fun dpToPx(dp: Int): Int {

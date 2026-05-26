@@ -193,7 +193,7 @@ export default function FeedPage() {
       </div>
 
       {/* Compose */}
-      <div className="p-4 border-b border-unseen-800/30">
+      <div className="max-w-2xl mx-auto w-full px-4 pt-4">
         <div className="glass p-3 md:p-4 rounded-2xl">
           <textarea
             value={postContent}
@@ -231,7 +231,7 @@ export default function FeedPage() {
       </div>
 
       {/* Feed List */}
-      <div className="pb-24">
+      <div className="pb-24 max-w-2xl mx-auto w-full px-4 pt-4">
         <AnimatePresence mode="wait">
           {loading && posts.length === 0 ? (
             <motion.div
@@ -239,7 +239,7 @@ export default function FeedPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="space-y-1"
+              className="space-y-4"
             >
               <PostSkeleton />
               <PostSkeleton />
@@ -268,7 +268,7 @@ export default function FeedPage() {
               </button>
             </motion.div>
           ) : (
-            <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
+            <motion.div key={activeTab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="space-y-4">
               {posts.map((post) => (
                 <PostCard key={post._id} post={post} />
               ))}

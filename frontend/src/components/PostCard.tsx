@@ -279,7 +279,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-6 border-b border-unseen-800/30 hover:bg-unseen-900/10 transition-colors relative"
+      className="glass-card p-5 md:p-6 rounded-3xl border border-unseen-800/30 hover:border-unseen-500/40 hover:shadow-[0_0_20px_rgba(123,44,191,0.15)] transition-all duration-300 relative"
     >
       {/* Report Status Banner */}
       <AnimatePresence>

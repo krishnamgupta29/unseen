@@ -51,9 +51,9 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
 
       // Unified Auth Guard for both Web and APK
       if (!currentUser) {
-        // Unauthenticated users can only access /login, /signup, /about, /privacy, /terms, /contact
-        const allowedPaths = ['/login', '/signup', '/about', '/privacy', '/terms', '/contact'];
-        const isAllowed = allowedPaths.some(path => pathname === path || pathname?.startsWith(path + '/'));
+        // Unauthenticated users can only access /, /login, /signup, /about, /privacy, /terms, /contact
+        const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact'];
+        const isAllowed = allowedPaths.some(path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/')));
         if (!isAllowed) {
           router.replace('/login');
         }

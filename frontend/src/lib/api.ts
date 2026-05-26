@@ -4,7 +4,17 @@
  */
 
 const getApiUrl = () => {
-  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+  
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // If the frontend is loaded via a local IP (like 10.0.2.2 in emulator or 192.168.x.x in LAN),
+    // redirect localhost API requests to that specific hosting IP.
+    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      url = url.replace('localhost', hostname).replace('127.0.0.1', hostname);
+    }
+  }
+
   if (url.endsWith('/api')) {
     return url;
   }

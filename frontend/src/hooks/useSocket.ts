@@ -3,14 +3,24 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const rawUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-const SOCKET_URL = rawUrl.replace(/\/api$/, '').replace(/\/$/, '');
+const getSocketUrl = (): string => {
+  let rawUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+  
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      rawUrl = rawUrl.replace('localhost', hostname).replace('127.0.0.1', hostname);
+    }
+  }
+  
+  return rawUrl.replace(/\/api$/, '').replace(/\/$/, '');
+};
 
 let socket: Socket | null = null;
 
 export function getSocket(accessToken: string): Socket {
   if (!socket || !socket.connected) {
-    socket = io(SOCKET_URL, {
+    socket = io(getSocketUrl(), {
       auth: { token: accessToken },
       transports: ['websocket', 'polling'],
       autoConnect: true,

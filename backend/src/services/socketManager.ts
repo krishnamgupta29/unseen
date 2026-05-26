@@ -25,7 +25,25 @@ export function initSocket(server: HTTPServer): SocketServer {
   ];
   const io = new SocketServer(server, {
     cors: {
-      origin: allowedOrigins,
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.some(o => origin.startsWith(o))) {
+          return callback(null, true);
+        }
+        const isLocal = origin.startsWith('http://localhost:') || 
+                        origin === 'http://localhost' ||
+                        origin.startsWith('http://127.0.0.1:') || 
+                        origin === 'http://127.0.0.1' ||
+                        origin.startsWith('http://10.0.2.2:') ||
+                        origin === 'http://10.0.2.2' ||
+                        /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin) ||
+                        /^http:\/\/172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+(:\d+)?$/.test(origin) ||
+                        /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin);
+        if (isLocal) {
+          return callback(null, true);
+        }
+        callback(null, false);
+      },
       credentials: true,
     },
     transports: ['websocket', 'polling'],

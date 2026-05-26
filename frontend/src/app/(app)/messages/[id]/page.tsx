@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Send, Loader2, Heart, MoreHorizontal, Trash2, Shield } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Heart, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useState, useEffect, useRef, use } from 'react';
 import Header from '@/components/layout/Header';
 import { useAppContext } from '@/context/AppContext';
@@ -117,9 +117,13 @@ export default function MessageThreadPage({ params }: { params: Promise<{ id: st
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingChat, setDeletingChat] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // remote user is typing
+  const [localTyping, setLocalTyping] = useState(false); // we are typing
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatMenuRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstLoad = useRef(true);
 
   // Click outside menu closer
   useEffect(() => {
@@ -156,6 +160,16 @@ export default function MessageThreadPage({ params }: { params: Promise<{ id: st
     
     const socket = getSocket();
     
+    // Typing indicators
+    const handleTypingStart = (data: { userId: string }) => {
+      if (data.userId === participantId) setIsTyping(true);
+    };
+    const handleTypingStop = (data: { userId: string }) => {
+      if (data.userId === participantId) setIsTyping(false);
+    };
+    socket.on('typing:start', handleTypingStart);
+    socket.on('typing:stop', handleTypingStop);
+    
     const handleNewMessage = (msg: any) => {
       if (msg.sender === participantId || msg.receiver === participantId) {
         useAppStore.getState().addMessageLocal(participantId, msg);
@@ -185,6 +199,8 @@ export default function MessageThreadPage({ params }: { params: Promise<{ id: st
       clearInterval(interval);
       socket.off('message:receive', handleNewMessage);
       socket.off('reaction:add', handleReactionAdd);
+      socket.off('typing:start', handleTypingStart);
+      socket.off('typing:stop', handleTypingStop);
     };
   }, [participantId, currentUser]);
 
@@ -208,16 +224,47 @@ export default function MessageThreadPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  // Scroll to bottom on new messages
+  // Scroll to bottom: instant on first load, smooth on new messages
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!chatEndRef.current) return;
+    if (isFirstLoad.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
+      isFirstLoad.current = false;
+    } else {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
+
+  // Scroll to bottom when typing indicator appears
+  useEffect(() => {
+    if (isTyping) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [isTyping]);
+
+  // Handle typing events with debounce
+  const handleTypingInput = (value: string) => {
+    setMsgText(value);
+    const socket = getSocket();
+    if (!localTyping && value.trim()) {
+      setLocalTyping(true);
+      socket.emit('typing:start', { receiverId: participantId });
+    }
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      if (localTyping || value.trim()) {
+        setLocalTyping(false);
+        socket.emit('typing:stop', { receiverId: participantId });
+      }
+    }, 1500);
+  };
 
   const handleSend = async () => {
     if (!msgText.trim() || !currentUser || isSending) return;
     setIsSending(true);
     const draftText = msgText.trim();
     setMsgText(''); // Instant input clear for absolute responsiveness
+    // Stop typing indicator immediately on send
+    getSocket().emit('typing:stop', { receiverId: participantId });
+    setLocalTyping(false);
     
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage = {
@@ -460,6 +507,25 @@ export default function MessageThreadPage({ params }: { params: Promise<{ id: st
             );
           })
         )}
+        {/* Typing Indicator */}
+        <AnimatePresence>
+          {isTyping && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="flex justify-start mb-2"
+            >
+              <div className="bg-unseen-900/60 border border-unseen-800/40 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-unseen-400 typing-dot" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-unseen-400 typing-dot" style={{ animationDelay: '200ms' }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-unseen-400 typing-dot" style={{ animationDelay: '400ms' }} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div ref={chatEndRef} />
       </div>
 
@@ -469,7 +535,7 @@ export default function MessageThreadPage({ params }: { params: Promise<{ id: st
           <input 
             type="text" 
             value={msgText}
-            onChange={(e) => setMsgText(e.target.value)}
+            onChange={(e) => handleTypingInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             className="flex-1 bg-transparent text-white placeholder-gray-500 text-sm focus:outline-none py-1.5 font-inter"
             placeholder="Whisper back..."

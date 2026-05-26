@@ -11,6 +11,52 @@ import { users, auth } from '@/lib/api';
 import { getSocket } from '@/lib/socketClient';
 import { useAppStore } from '@/lib/store';
 
+const PostSkeleton = () => (
+  <div className="p-6 border-b border-unseen-800/30 animate-pulse">
+    <div className="flex items-center space-x-3 mb-4">
+      <div className="w-10 h-10 rounded-full bg-unseen-900/60" />
+      <div className="flex-1 space-y-2">
+        <div className="h-3 bg-unseen-800/50 rounded w-1/4" />
+        <div className="h-2 bg-unseen-800/30 rounded w-1/3" />
+      </div>
+    </div>
+    <div className="space-y-2 mb-6">
+      <div className="h-3 bg-unseen-800/50 rounded w-full" />
+      <div className="h-3 bg-unseen-800/50 rounded w-5/6" />
+    </div>
+    <div className="flex space-x-12">
+      <div className="h-4 bg-unseen-800/40 rounded w-12" />
+      <div className="h-4 bg-unseen-800/40 rounded w-12" />
+    </div>
+  </div>
+);
+
+const ProfileHeaderSkeleton = () => (
+  <div className="w-full relative min-h-screen bg-[#080016] text-white">
+    <Header title="Shadow Identity" />
+    <div className="p-6 border-b border-unseen-800/30 animate-pulse">
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex items-center gap-6">
+          <div className="w-24 h-24 rounded-full bg-unseen-900/60" />
+          <div className="flex-1 flex justify-end space-x-6">
+            <div className="h-8 bg-unseen-800/50 rounded w-16" />
+            <div className="h-8 bg-unseen-800/50 rounded w-16" />
+          </div>
+        </div>
+        <div className="space-y-3 mt-4">
+          <div className="h-6 bg-unseen-800/50 rounded w-1/3" />
+          <div className="h-4 bg-unseen-800/30 rounded w-1/4" />
+          <div className="h-4 bg-unseen-800/30 rounded w-2/3 mt-2" />
+        </div>
+      </div>
+    </div>
+    <div className="p-4 space-y-2">
+      <PostSkeleton />
+      <PostSkeleton />
+    </div>
+  </div>
+);
+
 function ProfileContent() {
   const router = useRouter();
   const { currentUser, logout, updateCurrentUser, isLoading: authLoading } = useAppContext();
@@ -19,7 +65,7 @@ function ProfileContent() {
   
   const isOwnProfile = !targetId || targetId === currentUser?.id;
   const profileIdToFetch = (isOwnProfile ? currentUser?.id : targetId) || '';
- 
+  
   // Store-backed cached state selectors
   const profileUser = useAppStore(state => state.profiles[profileIdToFetch]);
   
@@ -29,7 +75,9 @@ function ProfileContent() {
   const savedPostIds = useAppStore(state => state.feeds[`saved_${profileIdToFetch}`] || []);
   const savedPosts = useAppStore(state => savedPostIds.map(id => state.posts[id]).filter(Boolean));
 
-  const [loading, setLoading] = useState(!profileUser);
+  const [loadingProfile, setLoadingProfile] = useState(!profileUser);
+  const [loadingPosts, setLoadingPosts] = useState(profilePosts.length === 0);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
   const [showNetworkModal, setShowNetworkModal] = useState<'followers' | 'following' | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -56,7 +104,8 @@ function ProfileContent() {
             const postsParsed = JSON.parse(cachedPosts);
             useAppStore.getState().setFeed(`profile_${profileIdToFetch}`, postsParsed);
           }
-          setLoading(false);
+          setLoadingProfile(false);
+          setLoadingPosts(false);
         } catch (_) {}
       }
     }
@@ -74,14 +123,14 @@ function ProfileContent() {
   useEffect(() => {
     const socket = getSocket();
     const handleFollowUpdate = (data: { followerId: string, followingId: string, isFollowing: boolean, followersCount: number, followingCount: number }) => {
-      if (profileUser && profileUser._id === data.followingId) {
+      if (profileUser && (profileUser._id || profileUser.id) === data.followingId) {
         useAppStore.getState().updateProfileLocal(data.followingId, {
           followersCount: data.followersCount,
           ...(currentUser && data.followerId === currentUser.id ? { isFollowing: data.isFollowing } : {})
         });
       }
       
-      if (profileUser && profileUser._id === data.followerId) {
+      if (profileUser && (profileUser._id || profileUser.id) === data.followerId) {
         useAppStore.getState().updateProfileLocal(data.followerId, {
           followingCount: data.followingCount
         });
@@ -158,8 +207,15 @@ function ProfileContent() {
   }, [showNetworkModal, profileUser]);
 
   const fetchProfileData = async () => {
-    if (!profileUser) {
-      setLoading(true);
+    const hasProfile = !!useAppStore.getState().profiles[profileIdToFetch];
+    const postsFeedKey = `profile_${profileIdToFetch}`;
+    const hasPosts = (useAppStore.getState().feeds[postsFeedKey] || []).length > 0;
+
+    if (!hasProfile) {
+      setLoadingProfile(true);
+    }
+    if (!hasPosts) {
+      setLoadingPosts(true);
     }
     try {
       const uData = await users.getProfile(profileIdToFetch);
@@ -168,27 +224,35 @@ function ProfileContent() {
       if (isOwnProfile && typeof window !== 'undefined') {
         localStorage.setItem('cached_own_profile', JSON.stringify(uData));
       }
+      setLoadingProfile(false);
       
       const pData = await users.getPosts(profileIdToFetch);
-      useAppStore.getState().setFeed(`profile_${profileIdToFetch}`, pData.posts);
+      useAppStore.getState().setFeed(postsFeedKey, pData.posts);
       if (isOwnProfile && typeof window !== 'undefined') {
         localStorage.setItem('cached_own_posts', JSON.stringify(pData.posts));
       }
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      setLoadingProfile(false);
+      setLoadingPosts(false);
     }
   };
 
   useEffect(() => {
     if (activeTab === 'saved' && isOwnProfile && profileIdToFetch) {
+      const hasSaved = (useAppStore.getState().feeds[`saved_${profileIdToFetch}`] || []).length > 0;
+      if (!hasSaved) {
+        setLoadingSaved(true);
+      }
       const fetchSaved = async () => {
         try {
           const sData = await users.getSavedPosts(profileIdToFetch);
           useAppStore.getState().setFeed(`saved_${profileIdToFetch}`, sData.posts);
         } catch (e) {
           console.error(e);
+        } finally {
+          setLoadingSaved(false);
         }
       };
       fetchSaved();
@@ -220,12 +284,12 @@ function ProfileContent() {
     }
   };
 
-  if (loading || authLoading) {
-    return (
-      <div className="w-full relative min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-unseen-400" />
-      </div>
-    );
+  if (authLoading) {
+    return <ProfileHeaderSkeleton />;
+  }
+
+  if (loadingProfile && !profileUser) {
+    return <ProfileHeaderSkeleton />;
   }
 
   if (!profileUser) {
@@ -344,7 +408,12 @@ function ProfileContent() {
 
       <div className="pb-24">
         {activeTab === 'posts' && (
-          profilePosts.length === 0 ? (
+          loadingPosts ? (
+            <div className="space-y-1">
+              <PostSkeleton />
+              <PostSkeleton />
+            </div>
+          ) : profilePosts.length === 0 ? (
             <div className="p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[250px]">
               <div className="w-14 h-14 rounded-full bg-unseen-900/40 flex items-center justify-center mb-4 border border-unseen-800/30 shadow-[0_0_12px_rgba(157,78,221,0.1)]">
                 <Shield className="w-6 h-6 text-unseen-400 opacity-55" />
@@ -360,9 +429,14 @@ function ProfileContent() {
         )}
         
         {activeTab === 'saved' && (
-          savedPosts.length === 0 ? (
-            <div className="p-12 text-center text-gray-500 flex flex-col items-center">
-              <Bookmark className="w-8 h-8 mb-4 opacity-50" />
+          loadingSaved ? (
+            <div className="space-y-1">
+              <PostSkeleton />
+              <PostSkeleton />
+            </div>
+          ) : savedPosts.length === 0 ? (
+            <div className="p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[250px]">
+              <Bookmark className="w-8 h-8 mb-4 opacity-50 text-unseen-400" />
               <p>No saved whispers yet.</p>
             </div>
           ) : (

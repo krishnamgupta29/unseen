@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, clearAccessToken, notifications as apiNotifications, users as apiUsers, messages as apiMessages } from '../lib/api';
 import { playNotificationSound } from '../lib/sound';
-import { getSocket } from '../lib/socketClient';
+import { getSocket, reconnectSocket, disconnectSocket } from '../lib/socketClient';
 
 export interface User {
   id: string;
@@ -129,13 +129,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const handleUnauthorized = () => {
       setCurrentUser(null);
       setNotifications([]);
+      disconnectSocket();
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/signup') && window.location.pathname !== '/') {
         window.location.href = '/login';
       }
     };
     
+    const handleTokenRefreshed = () => {
+      reconnectSocket();
+    };
+    
     if (typeof window !== 'undefined') {
       window.addEventListener('unauthorized', handleUnauthorized);
+      window.addEventListener('tokenRefreshed', handleTokenRefreshed);
     }
 
     // Attempt to fetch the current user session
@@ -154,12 +160,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('unauthorized', handleUnauthorized);
+        window.removeEventListener('tokenRefreshed', handleTokenRefreshed);
       }
     };
   }, []);
 
   const login = (user: User) => {
     setCurrentUser({ ...user, id: user._id || user.id });
+    reconnectSocket();
   };
 
   const logout = async () => {
@@ -170,6 +178,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       clearAccessToken();
       setCurrentUser(null);
+      disconnectSocket();
       window.location.href = '/login';
     }
   };

@@ -204,6 +204,7 @@ export const signup = async (req: Request, res: Response) => {
 
     res.status(201).json({
       accessToken,
+      refreshToken,
       user: {
         id: newUser._id,
         username: newUser.username,
@@ -307,6 +308,7 @@ export const login = async (req: Request, res: Response) => {
 
     res.json({
       accessToken,
+      refreshToken,
       user: {
         id: user._id,
         username: user.username,
@@ -327,7 +329,7 @@ export const login = async (req: Request, res: Response) => {
 
 export const refresh = async (req: Request, res: Response) => {
   try {
-    const token = req.cookies?.refreshToken;
+    const token = req.cookies?.refreshToken || req.body?.refreshToken;
     if (!token) return res.status(401).json({ message: 'No refresh token.' });
 
     const stored = await RefreshToken.findOne({ token }).populate('userId');
@@ -358,7 +360,7 @@ export const refresh = async (req: Request, res: Response) => {
     });
     setRefreshCookie(res, newRefreshToken);
 
-    res.json({ accessToken });
+    res.json({ accessToken, refreshToken: newRefreshToken });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

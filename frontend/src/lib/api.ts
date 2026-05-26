@@ -16,15 +16,28 @@ const BASE = getApiUrl();
 // ─── Token management ──────────────────────────────────────────────────────
 let accessToken: string | null =
   typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+let refreshToken: string | null =
+  typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
 
-export function setAccessToken(token: string) {
+export function setAccessToken(token: string, refreshTok?: string) {
   accessToken = token;
-  if (typeof window !== 'undefined') localStorage.setItem('accessToken', token);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('accessToken', token);
+    window.dispatchEvent(new Event('tokenRefreshed'));
+  }
+  if (refreshTok) {
+    refreshToken = refreshTok;
+    if (typeof window !== 'undefined') localStorage.setItem('refreshToken', refreshTok);
+  }
 }
 
 export function clearAccessToken() {
   accessToken = null;
-  if (typeof window !== 'undefined') localStorage.removeItem('accessToken');
+  refreshToken = null;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }
 }
 
 export function getAccessToken(): string | null {
@@ -69,10 +82,16 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise
 // ─── Refresh access token ──────────────────────────────────────────────────
 async function refreshAccessToken(): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
+    const localRefreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+    const res = await fetch(`${BASE}/auth/refresh`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: localRefreshToken }),
+      credentials: 'include' 
+    });
     if (!res.ok) { clearAccessToken(); return false; }
     const data = await res.json();
-    setAccessToken(data.accessToken);
+    setAccessToken(data.accessToken, data.refreshToken);
     return true;
   } catch {
     clearAccessToken();
@@ -83,13 +102,13 @@ async function refreshAccessToken(): Promise<boolean> {
 // ─── Auth ──────────────────────────────────────────────────────────────────
 export const auth = {
   signup: (displayName: string, password: string, email?: string, username?: string) =>
-    apiFetch<{ accessToken: string; user: any }>('/auth/signup', {
+    apiFetch<{ accessToken: string; refreshToken?: string; user: any }>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ displayName, password, email, username }),
     }),
 
   login: (username: string, password: string) =>
-    apiFetch<{ accessToken: string; user: any }>('/auth/login', {
+    apiFetch<{ accessToken: string; refreshToken?: string; user: any }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),

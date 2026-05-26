@@ -24,7 +24,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await auth.login(username, password);
-      setAccessToken(data.accessToken);
+      setAccessToken(data.accessToken, data.refreshToken);
       login(data.user);
       router.push('/feed');
     } catch (err: any) {

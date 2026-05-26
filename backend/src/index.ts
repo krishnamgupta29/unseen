@@ -25,7 +25,10 @@ const server = createServer(app);
 
 // ── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
+  process.env.FRONTEND_URL || 'https://unseen-world.vercel.app',
+  'https://unseen-world.vercel.app',
+  'https://unseen-social.vercel.app',
+  'https://unseen-frontend.onrender.com',
   'http://localhost:3000',
   'http://localhost:3001',
 ];

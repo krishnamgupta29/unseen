@@ -42,7 +42,7 @@ export default function SignupPage() {
     try {
       const data = await auth.signup(displayName, password, undefined, username);
 
-      setAccessToken(data.accessToken);
+      setAccessToken(data.accessToken, data.refreshToken);
       login(data.user);
       
       router.push('/feed');

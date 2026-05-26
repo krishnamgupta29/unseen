@@ -7,19 +7,22 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
 
 export default function IntroGate({ children }: { children: React.ReactNode }) {
+  const [isHydrated, setIsHydrated] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, isLoading: authLoading } = useAppContext();
 
   useEffect(() => {
-    // Check if intro has played
-    const hasPlayed = localStorage.getItem('introPlayed');
-    if (!hasPlayed) {
+    setIsHydrated(true);
+
+    // Check if intro has played in localStorage or the current tab session
+    const localPlayed = localStorage.getItem('introPlayed');
+    const sessionPlayed = sessionStorage.getItem('introPlayedSession');
+
+    if (!localPlayed && !sessionPlayed) {
       setShowIntro(true);
     }
-    setIsLoading(false);
 
     // Register Service Worker for PWA support
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -28,46 +31,58 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
           console.log('SW registered successfully:', registration.scope);
         },
         (error) => {
-          console.error('SW registration failed:', error);
+          console.log('SW registration failed:', error);
         }
       );
     }
   }, []);
 
   useEffect(() => {
-    // If the intro has played or completed, handle APK redirection
-    if (!isLoading && !showIntro && !authLoading) {
+    // If the intro has played or completed, handle routing guards
+    if (isHydrated && !showIntro && !authLoading) {
       const isApk = typeof window !== 'undefined' && 
-        (window.navigator.userAgent.includes('UnseenAPK') || localStorage.getItem('isApk') === 'true');
+        (window.navigator.userAgent.includes('UnseenAndroidAPK') || 
+         window.navigator.userAgent.includes('UnseenAPK') || 
+         localStorage.getItem('isApk') === 'true');
       
       if (isApk) {
         localStorage.setItem('isApk', 'true');
-        
-        if (!currentUser) {
-          if (pathname !== '/login' && pathname !== '/signup') {
-            router.replace('/login');
-          }
-        } else if (pathname === '/' || pathname === '/login' || pathname === '/signup') {
-          router.replace('/feed');
+      }
+
+      // Unified Auth Guard for both Web and APK
+      if (!currentUser) {
+        // Unauthenticated users can only access /login, /signup, /about, /privacy, /terms, /contact
+        const allowedPaths = ['/login', '/signup', '/about', '/privacy', '/terms', '/contact'];
+        const isAllowed = allowedPaths.some(path => pathname === path || pathname?.startsWith(path + '/'));
+        if (!isAllowed) {
+          router.replace('/login');
         }
       } else {
-        // Web flow: redirect logged in users away from auth / landing page to feed
-        if (currentUser && (pathname === '/' || pathname === '/login' || pathname === '/signup')) {
+        // Authenticated users should be redirected from auth / landing pages to /feed
+        const authOrLandingPaths = ['/', '/login', '/signup'];
+        if (authOrLandingPaths.includes(pathname)) {
           router.replace('/feed');
         }
       }
     }
-  }, [isLoading, showIntro, authLoading, currentUser, pathname, router]);
+  }, [isHydrated, showIntro, authLoading, currentUser, pathname, router]);
 
-  if (isLoading) {
-    return <div className="fixed inset-0 z-[9999] bg-[#080016]" />;
+  // Prevent flash of page content during hydration
+  if (!isHydrated) {
+    return <div className="fixed inset-0 z-[9999] bg-[#000000]" />;
   }
+
+  const handleIntroComplete = () => {
+    localStorage.setItem('introPlayed', 'true');
+    sessionStorage.setItem('introPlayedSession', 'true');
+    setShowIntro(false);
+  };
 
   return (
     <>
       <AnimatePresence mode="wait">
         {showIntro && (
-          <IntroAnimation key="intro" onComplete={() => setShowIntro(false)} />
+          <IntroAnimation key="intro" onComplete={handleIntroComplete} />
         )}
       </AnimatePresence>
       

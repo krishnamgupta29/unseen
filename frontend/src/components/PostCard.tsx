@@ -265,9 +265,10 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     else router.push(`/profile?id=${userId}`);
   };
 
-  const timeAgo = () => {
-    const ms = Date.now() - new Date(post.createdAt).getTime();
+  const formatTimeAgo = (dateString: string) => {
+    const ms = Date.now() - new Date(dateString).getTime();
     const minutes = Math.floor(ms / 60000);
+    if (minutes < 1) return 'just now';
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     if (hours < 24) return `${hours}h ago`;
@@ -304,7 +305,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-semibold text-gray-200 group-hover:text-unseen-300 transition-colors">{author.displayName}</span>
-              <span className="text-xs text-gray-500">· {timeAgo()}</span>
+              <span className="text-xs text-gray-500">· {formatTimeAgo(post.createdAt)}</span>
             </div>
             <div className="flex items-center space-x-2 mt-0.5">
               <span className="text-xs text-gray-600 font-mono">@{author.username}</span>
@@ -374,7 +375,12 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
           className={`flex items-center space-x-1 sm:space-x-2 transition-all active:scale-90 group ${isLiked ? 'text-unseen-400' : 'hover:text-unseen-300'}`}
         >
           <div className="p-1.5 sm:p-2 rounded-full group-hover:bg-unseen-800/50 transition-colors relative">
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+            <motion.div
+              animate={isLiked ? { scale: [1, 1.4, 0.9, 1.1, 1] } : { scale: 1 }}
+              transition={{ duration: 0.45 }}
+            >
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+            </motion.div>
           </div>
           <span className="text-xs sm:text-sm font-medium">{post.likesCount || 0}</span>
         </button>
@@ -526,7 +532,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                       <div className="flex-1 bg-unseen-900/30 p-3 rounded-2xl rounded-tl-sm border border-unseen-800/30">
                         <div className="flex items-center space-x-2 mb-1">
                           <span className="font-semibold text-gray-200 text-xs">{c.author.displayName}</span>
-                          <span className="text-[10px] text-gray-500">· just now</span>
+                          <span className="text-[10px] text-gray-500">· {formatTimeAgo(c.createdAt)}</span>
                         </div>
                         <p className="text-gray-300 text-sm font-inter leading-relaxed">{c.content}</p>
                         
@@ -535,7 +541,12 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                             onClick={() => toggleCommentLike(c._id)}
                             className={`flex items-center space-x-1 transition-colors ${c.isLiked ? 'text-unseen-400' : 'text-gray-500 hover:text-unseen-300'}`}
                           >
-                            <Heart className={`w-3 h-3 ${c.isLiked ? 'fill-current' : ''}`} />
+                            <motion.div
+                              animate={c.isLiked ? { scale: [1, 1.35, 0.9, 1.05, 1] } : { scale: 1 }}
+                              transition={{ duration: 0.4 }}
+                            >
+                              <Heart className={`w-3 h-3 ${c.isLiked ? 'fill-current' : ''}`} />
+                            </motion.div>
                             <span className="text-[10px] font-medium">{c.likesCount || 'Like'}</span>
                           </button>
                           <button 

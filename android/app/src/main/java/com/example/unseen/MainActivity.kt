@@ -1,9 +1,12 @@
 package com.example.unseen
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
@@ -11,29 +14,33 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
+import android.widget.Toast
 
-class MainActivity : ComponentActivity() {
+class MainActivity : android.app.Activity() {
 
     private lateinit var webView: WebView
     private lateinit var rootLayout: FrameLayout
     private lateinit var splashLayout: FrameLayout
+    private var offlineLayout: FrameLayout? = null
 
     // Standard dev server IP for android emulator pointing to host localhost:3000
     private val devUrl = "http://10.0.2.2:3000"
-    // Fallback production URL if dev server is unreachable
-    private val prodUrl = "https://unseen-social.vercel.app" // Modify if actual URL differs
+    // Fallback production URL
+    private val prodUrl = "https://unseen-social.vercel.app"
     
-    private val targetUrl = devUrl
+    private var targetUrl = prodUrl
 
     @SuppressLint("SetJavaScriptEnabled", "ObsoleteSdkInt")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,17 +58,31 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(Color.parseColor("#080016"))
         }
 
-        // 3. Initialize WebView Shell
-        webView = WebView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            visibility = View.INVISIBLE // Hide initially to prevent white flashes
-            setLayerType(View.LAYER_TYPE_HARDWARE, null) // Hardware acceleration enabled
+        // 3. Initialize WebView Shell safely
+        try {
+            webView = WebView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                visibility = View.INVISIBLE // Hide initially to prevent white flashes
+                setLayerType(View.LAYER_TYPE_HARDWARE, null) // Hardware acceleration enabled
+            }
+            setupWebViewSettings()
+            rootLayout.addView(webView)
+        } catch (e: Exception) {
+            // Safe fallback if System WebView is missing/disabled
+            val errorText = TextView(this).apply {
+                text = "System WebView is disabled or missing. Please enable Android System WebView to run Unseen."
+                setTextColor(Color.RED)
+                textSize = 16f
+                gravity = Gravity.CENTER
+                setPadding(40, 40, 40, 40)
+            }
+            rootLayout.addView(errorText)
+            setContentView(rootLayout)
+            return
         }
-        setupWebViewSettings()
-        rootLayout.addView(webView)
 
         // 4. Initialize Splash Screen Overlay
         setupSplashOverlay()
@@ -69,24 +90,16 @@ class MainActivity : ComponentActivity() {
 
         setContentView(rootLayout)
 
-        // 5. Native Back Navigation Hook
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    finish()
-                }
-            }
-        })
-
-        // 6. Set custom WebViewClient and load URL
+        // 5. WebView Clients Configuration
+        webView.webChromeClient = WebChromeClient()
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 // Reveal WebView and fade out native splash screen
-                webView.visibility = View.VISIBLE
-                fadeSplashOverlay()
+                if (webView.visibility != View.VISIBLE && offlineLayout == null) {
+                    webView.visibility = View.VISIBLE
+                    fadeSplashOverlay()
+                }
             }
 
             override fun onReceivedError(
@@ -95,15 +108,41 @@ class MainActivity : ComponentActivity() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                // If local dev server is offline and we load devUrl, automatically switch to prodUrl
-                val failingUrl = request?.url?.toString() ?: ""
-                if (failingUrl.startsWith(devUrl)) {
-                    view?.loadUrl(prodUrl)
+                
+                // Only handle main frame loading failures
+                if (request?.isForMainFrame == true) {
+                    val failingUrl = request.url?.toString() ?: ""
+                    
+                    // If local dev server is unreachable on emulator, switch to production
+                    if (failingUrl.startsWith(devUrl)) {
+                        targetUrl = prodUrl
+                        view?.loadUrl(prodUrl)
+                    } else {
+                        // Show premium offline retry screen
+                        showOfflineScreen()
+                    }
                 }
             }
         }
 
-        webView.loadUrl(targetUrl)
+        // 6. Select URL based on emulator vs physical device
+        targetUrl = if (isEmulator()) devUrl else prodUrl
+
+        // 7. Load target URL or show offline screen if disconnected
+        if (isNetworkAvailable()) {
+            webView.loadUrl(targetUrl)
+        } else {
+            showOfflineScreen()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (this::webView.isInitialized && webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 
     private fun setupFullscreenImmersive() {
@@ -131,19 +170,20 @@ class MainActivity : ComponentActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = true
             loadWithOverviewMode = true
             useWideViewPort = true
+            allowFileAccess = true
+            allowContentAccess = true
             cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             
-            // Native-like performance parameters
+            // Native touch performance optimizations
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
 
-            // Append custom User Agent flag for client-side APK detection
-            userAgentString = "$userAgentString UnseenAPK"
+            // Append custom User Agent flag for client-side APK environment detection
+            userAgentString = "$userAgentString UnseenAndroidAPK"
         }
     }
 
@@ -156,40 +196,32 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(Color.parseColor("#080016"))
         }
 
-        // UNSEEN glowing logo text
-        val titleText = TextView(this).apply {
-            text = "UNSEEN"
-            setTextColor(Color.WHITE)
-            textSize = 48f
-            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-            gravity = Gravity.CENTER
-            letterSpacing = 0.2f
-            // Subtle neon glow shadow
-            setShadowLayer(35f, 0f, 0f, Color.parseColor("#C77DFF"))
-            
-            val layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
+        // Center logo image
+        val logoSize = dpToPx(160)
+        val logoView = ImageView(this).apply {
+            val resId = resources.getIdentifier("splash_logo", "drawable", packageName)
+            if (resId != 0) {
+                setImageResource(resId)
+            } else {
+                setImageResource(R.mipmap.ic_launcher)
+            }
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = FrameLayout.LayoutParams(logoSize, logoSize).apply {
                 gravity = Gravity.CENTER
             }
-            this.layoutParams = layoutParams
         }
 
-        // Cyberpunk progress bar below the text
+        // Progress bar below the logo
+        val progressBarSize = dpToPx(40)
         val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
             indeterminateTintList = ColorStateList.valueOf(Color.parseColor("#9D4EDD"))
-            val layoutParams = FrameLayout.LayoutParams(
-                120, // width in pixels
-                120  // height in pixels
-            ).apply {
+            layoutParams = FrameLayout.LayoutParams(progressBarSize, progressBarSize).apply {
                 gravity = Gravity.CENTER
-                topMargin = 220 // Push below center title
+                topMargin = dpToPx(120) // Push below center
             }
-            this.layoutParams = layoutParams
         }
 
-        splashLayout.addView(titleText)
+        splashLayout.addView(logoView)
         splashLayout.addView(progressBar)
     }
 
@@ -203,5 +235,151 @@ class MainActivity : ComponentActivity() {
                 }
                 .start()
         }
+    }
+
+    private fun showOfflineScreen() {
+        if (offlineLayout != null) return
+
+        offlineLayout = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(Color.parseColor("#080016"))
+        }
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+        }
+
+        // Logo
+        val logoSize = dpToPx(120)
+        val logoView = ImageView(this).apply {
+            val resId = resources.getIdentifier("splash_logo", "drawable", packageName)
+            if (resId != 0) {
+                setImageResource(resId)
+            } else {
+                setImageResource(R.mipmap.ic_launcher)
+            }
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(logoSize, logoSize).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                bottomMargin = dpToPx(24)
+            }
+        }
+
+        // Error Title
+        val titleText = TextView(this).apply {
+            text = "Connection Lost"
+            setTextColor(Color.WHITE)
+            textSize = 22f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(8)
+            }
+        }
+
+        // Error Subtitle
+        val subText = TextView(this).apply {
+            text = "Unable to connect to the Unseen network.\nPlease check your connection and try again."
+            setTextColor(Color.parseColor("#807A8A"))
+            textSize = 14f
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(32)
+            }
+        }
+
+        // Retry button
+        val retryButton = Button(this).apply {
+            text = "Reconnect"
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor("#7B2CBF"))
+            setPadding(dpToPx(24), dpToPx(12), dpToPx(24), dpToPx(12))
+            
+            setOnClickListener {
+                if (isNetworkAvailable()) {
+                    hideOfflineScreen()
+                    webView.loadUrl(targetUrl)
+                } else {
+                    Toast.makeText(this@MainActivity, "Still offline. Please check connection.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        container.addView(logoView)
+        container.addView(titleText)
+        container.addView(subText)
+        container.addView(retryButton)
+        offlineLayout?.addView(container)
+        rootLayout.addView(offlineLayout)
+
+        webView.visibility = View.INVISIBLE
+        if (this::splashLayout.isInitialized) {
+            splashLayout.visibility = View.GONE
+        }
+    }
+
+    private fun hideOfflineScreen() {
+        offlineLayout?.let {
+            rootLayout.removeView(it)
+        }
+        offlineLayout = null
+        if (this::splashLayout.isInitialized) {
+            splashLayout.visibility = View.VISIBLE
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } else {
+            @Suppress("DEPRECATION")
+            val networkInfo = connectivityManager.activeNetworkInfo
+            @Suppress("DEPRECATION")
+            return networkInfo != null && networkInfo.isConnected
+        }
+    }
+
+    private fun isEmulator(): Boolean {
+        return (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
+                || Build.FINGERPRINT.startsWith("generic")
+                || Build.FINGERPRINT.startsWith("unknown")
+                || Build.HARDWARE.contains("goldfish")
+                || Build.HARDWARE.contains("ranchu")
+                || Build.MODEL.contains("google_sdk")
+                || Build.MODEL.contains("Emulator")
+                || Build.MODEL.contains("Android SDK built for x86")
+                || Build.MANUFACTURER.contains("Genymotion")
+                || Build.PRODUCT.contains("sdk_gphone")
+                || Build.PRODUCT.contains("google_sdk")
+                || Build.PRODUCT.contains("sdk")
+                || Build.PRODUCT.contains("sdk_x86")
+                || Build.PRODUCT.contains("vbox86p")
+                || Build.PRODUCT.contains("emulator")
+                || Build.PRODUCT.contains("simulator")
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 }

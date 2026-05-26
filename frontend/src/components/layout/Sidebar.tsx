@@ -57,7 +57,9 @@ export default function Sidebar() {
         </Link>
         <nav className="flex-1 space-y-2">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = item.href === '/feed' 
+              ? (pathname === '/feed' || pathname === '/')
+              : pathname.startsWith(item.href);
             const isMessages = item.href === '/messages';
             const showDot = isMessages && (unreadMessagesCount > 0 || localUnread) && !isActive;
             return (
@@ -97,25 +99,37 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full glass border-t border-unseen-800/50 z-50 flex justify-around items-center pt-4 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <nav className="md:hidden fixed bottom-0 left-0 w-full glass border-t border-unseen-800/40 z-50 flex justify-around items-center py-2 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = item.href === '/feed'
+            ? (pathname === '/feed' || pathname === '/')
+            : pathname.startsWith(item.href);
           const isMessages = item.href === '/messages';
           const showDot = isMessages && (unreadMessagesCount > 0 || localUnread) && !isActive;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`p-2 rounded-xl transition-all relative ${
-                isActive ? 'text-unseen-300' : 'text-gray-400 hover:text-white'
-              }`}
+              className="relative p-2.5 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 group"
             >
-              <div className="relative">
+              <motion.div
+                whileTap={{ scale: 0.88 }}
+                className={`relative z-10 p-1.5 rounded-xl transition-colors duration-300 ${
+                  isActive ? 'text-unseen-300' : 'text-gray-400 group-hover:text-white'
+                }`}
+              >
                 {item.icon}
                 {showDot && (
-                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-unseen-400 rounded-full border-2 border-[#080016] shadow-[0_0_8px_rgba(157,78,221,0.8)]" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-unseen-400 rounded-full border-2 border-[#080016] shadow-[0_0_8px_rgba(157,78,221,0.8)]" />
                 )}
-              </div>
+              </motion.div>
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabMobile"
+                  className="absolute inset-0 bg-gradient-to-b from-unseen-500/10 to-unseen-600/5 border border-unseen-400/20 rounded-2xl shadow-[inset_0_0_12px_rgba(157,78,221,0.15),0_0_15px_rgba(157,78,221,0.05)]"
+                  transition={{ type: 'spring', stiffness: 350, damping: 26 }}
+                />
+              )}
             </Link>
           );
         })}

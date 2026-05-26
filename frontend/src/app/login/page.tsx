@@ -35,16 +35,43 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#080016] overflow-hidden relative">
+    <div className="min-h-screen flex bg-[#080016] overflow-hidden relative select-none">
+      {/* Dynamic Background Glowing Orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <motion.div 
+          animate={{ 
+            x: [0, 80, -40, 0], 
+            y: [0, -60, 40, 0],
+            scale: [1, 1.2, 0.9, 1]
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[10%] left-[5%] w-[350px] h-[350px] bg-unseen-600/15 rounded-full blur-[100px]" 
+        />
+        <motion.div 
+          animate={{ 
+            x: [0, -60, 50, 0], 
+            y: [0, 80, -50, 0],
+            scale: [1, 0.9, 1.1, 1]
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          className="absolute bottom-[15%] right-[5%] w-[400px] h-[400px] bg-unseen-500/10 rounded-full blur-[120px]" 
+        />
+        <motion.div 
+          animate={{ 
+            x: [0, 30, -50, 0], 
+            y: [0, 40, -30, 0],
+            scale: [1, 1.15, 0.85, 1]
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+          className="absolute top-[50%] left-[45%] -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-unseen-700/10 rounded-full blur-[90px]" 
+        />
+      </div>
+
       {/* Left Side - Branding (Hidden on mobile) */}
-      <div className="hidden lg:flex w-1/2 flex-col justify-center px-12 xl:px-24 relative z-10 border-r border-unseen-800/30">
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
-          <div className="absolute top-[30%] left-[-20%] w-[60%] h-[60%] bg-unseen-600/20 rounded-full blur-[120px]" />
-          <div className="absolute bottom-[-10%] right-[10%] w-[40%] h-[40%] bg-unseen-400/10 rounded-full blur-[100px]" />
-        </div>
+      <div className="hidden lg:flex w-1/2 flex-col justify-center px-12 xl:px-24 relative z-10 border-r border-unseen-800/30 bg-[#080016]/40 backdrop-blur-sm">
         <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
           <Link href="/">
-            <h1 className="text-5xl xl:text-7xl font-poppins font-bold text-transparent bg-clip-text bg-gradient-to-r from-unseen-200 to-unseen-500 tracking-wide mb-6">
+            <h1 className="text-5xl xl:text-7xl font-poppins font-bold text-transparent bg-clip-text bg-gradient-to-r from-unseen-200 to-unseen-500 tracking-wide mb-6 filter drop-shadow-[0_0_20px_rgba(157,78,221,0.3)]">
               UNSEEN
             </h1>
           </Link>
@@ -59,15 +86,23 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative overflow-y-auto">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="glass p-8 md:p-12 rounded-3xl w-full max-w-md border border-unseen-700/30 shadow-[0_0_40px_rgba(36,0,70,0.5)] my-auto">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 md:p-12 relative overflow-y-auto z-10">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          transition={{ duration: 0.6 }} 
+          className="glass p-8 md:p-12 rounded-3xl w-full max-w-md border border-unseen-700/40 shadow-[0_0_50px_rgba(36,0,70,0.6)] my-auto relative overflow-hidden group"
+        >
+          {/* Ambient card top border glow */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-unseen-400 to-transparent opacity-80 group-hover:opacity-100 transition-opacity" />
+
           <div className="text-center mb-8">
             <Link href="/" className="inline-block lg:hidden mb-4">
-              <h1 className="text-3xl font-poppins font-bold text-transparent bg-clip-text bg-gradient-to-r from-unseen-200 to-unseen-400 tracking-wide">
+              <h1 className="text-4xl font-poppins font-bold text-transparent bg-clip-text bg-gradient-to-r from-unseen-200 to-unseen-400 tracking-wide filter drop-shadow-[0_0_15px_rgba(157,78,221,0.4)]">
                 UNSEEN
               </h1>
             </Link>
-            <h3 className="text-2xl font-bold text-white mb-2">Access Identity</h3>
+            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Access Identity</h3>
             <p className="text-gray-400 text-sm font-inter">Enter your credentials to continue.</p>
           </div>
 
@@ -77,7 +112,7 @@ export default function LoginPage() {
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.3, ease: 'easeOut' }}
-                className="relative overflow-hidden p-4 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-950/40 via-purple-950/40 to-red-950/40 text-red-200 text-sm font-medium shadow-[0_0_15px_rgba(239,68,68,0.15)] flex items-start gap-2.5"
+                className="relative overflow-hidden p-4 rounded-2xl border border-red-500/30 bg-gradient-to-r from-red-950/40 via-purple-950/40 to-red-950/40 text-red-200 text-sm font-medium shadow-[0_0_15px_rgba(239,68,68,0.15)] flex items-start gap-2.5"
               >
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 via-purple-500 to-red-500" />
                 <span className="flex-shrink-0 text-red-400 w-5 h-5 flex items-center justify-center font-bold border border-red-500/40 rounded-full text-xs bg-red-950/80 mt-0.5 font-mono">
@@ -90,40 +125,44 @@ export default function LoginPage() {
               </motion.div>
             )}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2 font-inter">Username, Email, or Full Name</label>
+              <label className="block text-xs font-semibold text-unseen-300 uppercase tracking-widest mb-2 font-inter">Username, Email, or Full Name</label>
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-unseen-900/50 border border-unseen-700/50 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-unseen-400 focus:ring-1 focus:ring-unseen-400 transition-all font-mono"
+                className="w-full bg-unseen-950/40 border border-unseen-800/60 rounded-2xl px-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-unseen-400 focus:ring-1 focus:ring-unseen-400/50 shadow-inner transition-all duration-300 font-mono text-sm"
                 placeholder="Enter your identity"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2 font-inter">Password</label>
+              <label className="block text-xs font-semibold text-unseen-300 uppercase tracking-widest mb-2 font-inter">Password</label>
               <div className="relative flex items-center">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-unseen-900/50 border border-unseen-700/50 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-unseen-400 focus:ring-1 focus:ring-unseen-400 transition-all"
+                  className="w-full bg-unseen-950/40 border border-unseen-800/60 rounded-2xl px-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-unseen-400 focus:ring-1 focus:ring-unseen-400/50 shadow-inner transition-all duration-300 text-sm"
                   placeholder="••••••••"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-unseen-300 transition-colors focus:outline-none">
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 text-gray-400 hover:text-unseen-300 transition-colors focus:outline-none">
                   <motion.div initial={false} animate={{ scale: showPassword ? 1.1 : 1, rotate: showPassword ? 15 : 0 }} className={showPassword ? 'text-unseen-400 drop-shadow-[0_0_5px_rgba(157,78,221,0.8)]' : ''}>
                     {showPassword ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                   </motion.div>
                 </button>
               </div>
             </div>
-            <button type="submit" disabled={loading} className="w-full py-4 rounded-xl bg-gradient-to-r from-unseen-600 to-unseen-800 text-white font-semibold hover:shadow-[0_0_20px_rgba(123,44,191,0.6)] transition-all transform hover:scale-[1.02] mt-4 disabled:opacity-50 disabled:cursor-not-allowed">
+            <button 
+              type="submit" 
+              disabled={loading} 
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-unseen-600 via-unseen-700 to-unseen-800 text-white font-semibold shadow-[0_0_20px_rgba(123,44,191,0.3)] hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 mt-4 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider text-xs"
+            >
               {loading ? 'Authenticating...' : 'Enter the Void'}
             </button>
           </form>
           <div className="mt-8 text-center">
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-sm font-inter">
               Don't have an identity yet?{' '}
               <Link href="/signup" className="text-unseen-300 hover:text-unseen-200 transition-colors font-medium">
                 Claim one

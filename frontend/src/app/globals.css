@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  --color-unseen-950: #080016;
   --color-unseen-900: #10002b;
   --color-unseen-800: #240046;
   --color-unseen-700: #3c096c;
@@ -12,11 +13,17 @@
   
   --font-inter: var(--font-inter), sans-serif;
   --font-poppins: var(--font-poppins), sans-serif;
-  --font-satoshi: 'Satoshi', sans-serif;
   
   --animate-fade-in: fade-in 0.5s ease-out forwards;
   --animate-glow: glow 2s infinite alternate;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
 }
+
+/* ========================================
+   KEYFRAME ANIMATIONS
+   ======================================== */
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(10px); }
@@ -28,9 +35,52 @@
   to { box-shadow: 0 0 20px #c77dff, 0 0 30px #9d4edd; }
 }
 
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(157,78,221,0.3), 0 0 30px rgba(123,44,191,0.15); }
+  50% { box-shadow: 0 0 25px rgba(157,78,221,0.6), 0 0 50px rgba(123,44,191,0.3); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes tap-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.93); }
+  100% { transform: scale(1); }
+}
+
+/* ========================================
+   ROOT & BODY
+   ======================================== */
+
 :root {
   --background: #080016;
   --foreground: #ffffff;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+html {
+  /* Prevent elastic over-scroll bounciness on iOS/Android WebView */
+  overscroll-behavior: none;
+  height: 100%;
 }
 
 body {
@@ -38,29 +88,99 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter);
   overflow-x: hidden;
+  height: 100%;
+  /* Smoother text rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent text resize on orientation change */
+  -webkit-text-size-adjust: 100%;
+  /* GPU-accelerate the entire page */
+  transform: translateZ(0);
+  /* Prevent pull-to-refresh flash on android WebView */
+  overscroll-behavior-y: none;
 }
 
-/* Glassmorphism utility */
+/* ========================================
+   GLASSMORPHISM UTILITIES
+   ======================================== */
+
 .glass {
   background: rgba(36, 0, 70, 0.3);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(199, 125, 255, 0.15);
 }
+
+.glass-strong {
+  background: rgba(16, 0, 43, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(199, 125, 255, 0.2);
+}
+
+.glass-card {
+  background: rgba(36, 0, 70, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(157, 78, 221, 0.12);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 .glass-glow:hover {
   box-shadow: 0 0 20px rgba(123, 44, 191, 0.4);
 }
 
-/* Universal Scrollbar Hiding (entire app/website, all scrollable containers, all devices) */
+/* ========================================
+   SCROLLBAR HIDING (NATIVE APP FEEL)
+   ======================================== */
+
 * {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 *::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
+  display: none;
 }
 
-/* Telegram/WhatsApp style cyber grid dot pattern */
+/* ========================================
+   NATIVE APP TOUCH INTERACTIONS
+   ======================================== */
+
+/* Remove tap highlight on Android WebView */
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Interactive elements get native-feeling tap response */
+button, a, [role="button"] {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Active state press effect for native app feel */
+button:active, a:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* ========================================
+   NATIVE PAGE TRANSITIONS
+   ======================================== */
+
+.page-slide-in {
+  animation: slide-in-right 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.page-fade-up {
+  animation: slide-up 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* ========================================
+   CHAT PATTERN (MESSAGES BACKGROUND)
+   ======================================== */
+
 .chat-pattern {
   background-color: #080016;
   background-image: 
@@ -70,7 +190,103 @@ body {
   background-position: 0 0, 12px 12px;
 }
 
-/* Responsive Adaptive Grid System */
+/* ========================================
+   SKELETON / SHIMMER LOADER
+   ======================================== */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(36, 0, 70, 0.4) 25%,
+    rgba(60, 9, 108, 0.5) 50%,
+    rgba(36, 0, 70, 0.4) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* ========================================
+   GLOW UTILITIES
+   ======================================== */
+
+.glow-purple {
+  box-shadow: 0 0 20px rgba(157, 78, 221, 0.4), 0 0 40px rgba(123, 44, 191, 0.2);
+}
+
+.glow-purple-sm {
+  box-shadow: 0 0 10px rgba(157, 78, 221, 0.3);
+}
+
+.text-glow {
+  text-shadow: 0 0 20px rgba(199, 125, 255, 0.6), 0 0 40px rgba(157, 78, 221, 0.3);
+}
+
+/* ========================================
+   SAFE AREA UTILITIES (APK / NOTCH SUPPORT)
+   ======================================== */
+
+.pb-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: calc(1rem + env(safe-area-inset-top));
+}
+
+.bottom-nav-safe {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
+/* ========================================
+   FLOATING GLOW ORB (REUSABLE BACKGROUND)
+   ======================================== */
+
+.orb {
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  position: absolute;
+  animation: float 10s ease-in-out infinite;
+}
+
+.orb-purple {
+  background: radial-gradient(circle, rgba(157, 78, 221, 0.25) 0%, transparent 70%);
+}
+
+.orb-deep {
+  background: radial-gradient(circle, rgba(90, 24, 154, 0.2) 0%, transparent 70%);
+}
+
+/* ========================================
+   FEED POST CARDS — NATIVE SWIPE FEEL
+   ======================================== */
+
+.post-card {
+  will-change: transform;
+  transition: background-color 0.15s ease;
+}
+
+.post-card:active {
+  background-color: rgba(36, 0, 70, 0.15);
+}
+
+/* ========================================
+   BOTTOM NAVIGATION BAR
+   ======================================== */
+
+.bottom-nav {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(8, 0, 22, 0.88);
+  border-top: 1px solid rgba(157, 78, 221, 0.15);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* ========================================
+   RESPONSIVE ADAPTIVE GRID
+   ======================================== */
+
 .adaptive-card-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -92,5 +308,33 @@ body {
 @media (min-width: 1024px) {
   .adaptive-card-grid {
     grid-template-columns: repeat(3, minmax(300px, 1fr));
+  }
+}
+
+/* ========================================
+   INPUT FOCUS STYLES — APK NATIVE FEEL
+   ======================================== */
+
+input:focus, textarea:focus {
+  outline: none;
+}
+
+/* ========================================
+   OVERSCROLL POLISHING
+   ======================================== */
+
+.scroll-container {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ========================================
+   APK VIEWPORT FIT
+   ======================================== */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .apk-content {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
   }
 }

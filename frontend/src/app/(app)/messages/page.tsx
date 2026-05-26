@@ -2,17 +2,25 @@
 
 export const dynamic = "force-dynamic";
 import { Search, MessageSquare, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Header from '@/components/layout/Header';
 import { useAppContext } from '@/context/AppContext';
 import { messages as apiMessages } from '@/lib/api';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getSocket } from '@/lib/socketClient';
 import { useAppStore } from '@/lib/store';
 
 function MessagesContent() {
   const router = useRouter();
   const { currentUser } = useAppContext();
+  const searchParams = useSearchParams();
+  const startId = searchParams.get('start');
+
+  useEffect(() => {
+    if (startId) {
+      router.replace(`/messages/${startId}`);
+    }
+  }, [startId, router]);
   
   // Use store cached conversations list
   const conversations = useAppStore(state => state.conversations);
@@ -147,5 +155,13 @@ function MessagesContent() {
 }
 
 export default function MessagesPage() {
-  return <MessagesContent />;
+  return (
+    <Suspense fallback={
+      <div className="w-full h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-unseen-400" />
+      </div>
+    }>
+      <MessagesContent />
+    </Suspense>
+  );
 }

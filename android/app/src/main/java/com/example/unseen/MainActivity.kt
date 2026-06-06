@@ -46,10 +46,7 @@ class MainActivity : android.app.Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Fullscreen Immersive Mode Configuration
-        setupFullscreenImmersive()
-
-        // 2. Programmatic Layout Construction
+        // 1. Programmatic Layout Construction
         rootLayout = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -58,7 +55,7 @@ class MainActivity : android.app.Activity() {
             setBackgroundColor(Color.parseColor("#080016"))
         }
 
-        // 3. Initialize WebView Shell safely
+        // 2. Initialize WebView Shell safely
         try {
             webView = WebView(this).apply {
                 layoutParams = FrameLayout.LayoutParams(
@@ -84,11 +81,14 @@ class MainActivity : android.app.Activity() {
             return
         }
 
-        // 4. Initialize Splash Screen Overlay
+        // 3. Initialize Splash Screen Overlay
         setupSplashOverlay()
         rootLayout.addView(splashLayout)
 
         setContentView(rootLayout)
+
+        // 4. Fullscreen Immersive Mode Configuration (Safe to call after setContentView is executed)
+        setupFullscreenImmersive()
 
         // 5. WebView Clients Configuration
         webView.webChromeClient = WebChromeClient()
@@ -182,8 +182,13 @@ class MainActivity : android.app.Activity() {
             builtInZoomControls = false
             displayZoomControls = false
 
-            // Append custom User Agent flag for client-side APK environment detection
-            userAgentString = "$userAgentString UnseenAndroidAPK"
+            // Append custom User Agent flag for client-side APK environment detection safely
+            try {
+                val defaultUserAgent = userAgentString ?: ""
+                userAgentString = "$defaultUserAgent UnseenAndroidAPK"
+            } catch (e: Exception) {
+                // Fallback to default user agent setting if it fails
+            }
         }
     }
 

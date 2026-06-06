@@ -17,6 +17,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
+
+  useEffect(() => {
+    // Disable heavy blurred orb animations on mobile/tablet to ensure butter-smooth performance
+    setShouldAnimate(window.innerWidth >= 768);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,29 +45,29 @@ export default function LoginPage() {
       {/* Dynamic Background Glowing Orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <motion.div 
-          animate={{ 
+          animate={shouldAnimate ? { 
             x: [0, 80, -40, 0], 
             y: [0, -60, 40, 0],
             scale: [1, 1.2, 0.9, 1]
-          }}
+          } : {}}
           transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
           className="absolute top-[10%] left-[5%] w-[350px] h-[350px] bg-unseen-600/15 rounded-full blur-[100px]" 
         />
         <motion.div 
-          animate={{ 
+          animate={shouldAnimate ? { 
             x: [0, -60, 50, 0], 
             y: [0, 80, -50, 0],
             scale: [1, 0.9, 1.1, 1]
-          }}
+          } : {}}
           transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
           className="absolute bottom-[15%] right-[5%] w-[400px] h-[400px] bg-unseen-500/10 rounded-full blur-[120px]" 
         />
         <motion.div 
-          animate={{ 
+          animate={shouldAnimate ? { 
             x: [0, 30, -50, 0], 
             y: [0, 40, -30, 0],
             scale: [1, 1.15, 0.85, 1]
-          }}
+          } : {}}
           transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
           className="absolute top-[50%] left-[45%] -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-unseen-700/10 rounded-full blur-[90px]" 
         />

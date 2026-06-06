@@ -73,19 +73,19 @@ export default function LandingPage() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.8, duration: 0.8 }}
-          className="grid grid-cols-2 gap-4 mt-10 w-full max-w-lg px-4"
+          className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10 w-full max-w-md px-4 mx-auto"
         >
-          <Link href="/signup" className="px-4 py-3.5 rounded-full bg-gradient-to-r from-unseen-600 to-unseen-800 text-white font-semibold text-sm md:text-lg hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] transition-all transform hover:scale-105 text-center flex items-center justify-center">
+          <Link href="/signup" className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-gradient-to-r from-unseen-600 to-unseen-800 text-white font-semibold text-base md:text-lg hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] transition-all transform md:hover:scale-105 active:scale-95 text-center flex items-center justify-center">
             Join Unseen
           </Link>
-          <a href="/unseen.apk" download className="px-4 py-3.5 rounded-full glass glass-glow text-white font-semibold text-sm md:text-lg transition-all flex items-center justify-center gap-2 text-center">
+          <a href="/unseen.apk" download className="w-full sm:w-auto px-8 py-3.5 rounded-full glass glass-glow text-white font-semibold text-base md:text-lg transition-all flex items-center justify-center gap-2 text-center transform md:hover:scale-105 active:scale-95">
             <Download className="w-4 h-4 md:w-5 md:h-5" /> Download APK
           </a>
         </motion.div>
       </section>
 
       {/* Showcase Section */}
-      <section className="py-20 px-6 md:px-12 relative z-10 flex flex-col items-center max-w-7xl mx-auto">
+      <section className="py-20 px-4 md:px-12 relative z-10 flex flex-col items-center max-w-7xl mx-auto">
         <h2 className="text-3xl md:text-5xl font-poppins font-bold mb-16 text-center">Experience the Unseen</h2>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
@@ -94,7 +94,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow hover:scale-[1.02] hover:border-unseen-500/50 hover:shadow-[0_0_30px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1"
+            className="glass rounded-3xl p-6 md:p-12 glass-glow md:hover:scale-[1.02] md:hover:border-unseen-500/50 md:hover:shadow-[0_0_30px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1 w-full max-w-md mx-auto sm:max-w-none"
           >
             <div className="absolute top-0 right-0 w-64 h-64 bg-unseen-600/10 rounded-full blur-3xl -z-10 group-hover:bg-unseen-500/20 transition-colors" />
             <Shield className="w-12 h-12 text-unseen-300 mb-6" />
@@ -110,7 +110,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow hover:scale-[1.02] hover:border-unseen-500/50 hover:shadow-[0_0_30px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1"
+            className="glass rounded-3xl p-6 md:p-12 glass-glow md:hover:scale-[1.02] md:hover:border-unseen-500/50 md:hover:shadow-[0_0_30px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1 w-full max-w-md mx-auto sm:max-w-none"
           >
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-unseen-800/20 rounded-full blur-3xl -z-10 group-hover:bg-unseen-700/30 transition-colors" />
             <Lock className="w-12 h-12 text-unseen-400 mb-6" />
@@ -125,7 +125,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow hover:scale-[1.01] hover:border-unseen-500/50 hover:shadow-[0_0_35px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1 sm:col-span-2 lg:col-span-3"
+            className="glass rounded-3xl p-6 md:p-12 glass-glow md:hover:scale-[1.01] md:hover:border-unseen-500/50 md:hover:shadow-[0_0_35px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1 sm:col-span-2 lg:col-span-3 w-full max-w-md mx-auto sm:max-w-none"
           >
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-unseen-900/30 rounded-full blur-[100px] -z-10" />
             <div className="flex flex-col md:flex-row items-center gap-8">
@@ -139,7 +139,7 @@ export default function LandingPage() {
                   Try it now <span className="text-xl">→</span>
                 </Link>
               </div>
-              <div className="flex-1 w-full bg-[#0a0514] border border-unseen-800 rounded-2xl p-6 shadow-2xl">
+              <div className="flex-1 w-full max-w-sm mx-auto bg-[#0a0514] border border-unseen-800 rounded-2xl p-5 md:p-6 shadow-2xl">
                  <div className="space-y-4">
                     <div className="flex justify-between items-center pb-4 border-b border-unseen-800">
                       <div className="flex gap-2">

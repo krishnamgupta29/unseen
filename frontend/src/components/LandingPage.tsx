@@ -94,7 +94,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-1"
+            className="glass rounded-3xl p-8 md:p-12 glass-glow hover:scale-[1.02] hover:border-unseen-500/50 hover:shadow-[0_0_30px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1"
           >
             <div className="absolute top-0 right-0 w-64 h-64 bg-unseen-600/10 rounded-full blur-3xl -z-10 group-hover:bg-unseen-500/20 transition-colors" />
             <Shield className="w-12 h-12 text-unseen-300 mb-6" />
@@ -110,7 +110,7 @@ export default function LandingPage() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-1"
+            className="glass rounded-3xl p-8 md:p-12 glass-glow hover:scale-[1.02] hover:border-unseen-500/50 hover:shadow-[0_0_30px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1"
           >
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-unseen-800/20 rounded-full blur-3xl -z-10 group-hover:bg-unseen-700/30 transition-colors" />
             <Lock className="w-12 h-12 text-unseen-400 mb-6" />
@@ -125,7 +125,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="glass rounded-3xl p-8 md:p-12 glass-glow relative overflow-hidden group col-span-1 sm:col-span-2 lg:col-span-3"
+            className="glass rounded-3xl p-8 md:p-12 glass-glow hover:scale-[1.01] hover:border-unseen-500/50 hover:shadow-[0_0_35px_rgba(157,78,221,0.2)] transition-all duration-300 relative overflow-hidden group col-span-1 sm:col-span-2 lg:col-span-3"
           >
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-unseen-900/30 rounded-full blur-[100px] -z-10" />
             <div className="flex flex-col md:flex-row items-center gap-8">

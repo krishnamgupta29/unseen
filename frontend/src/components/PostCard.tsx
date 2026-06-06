@@ -279,7 +279,8 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-5 md:p-6 rounded-3xl border border-unseen-800/30 hover:border-unseen-500/40 hover:shadow-[0_0_20px_rgba(123,44,191,0.15)] transition-all duration-300 relative"
+      whileHover={{ scale: 1.01, y: -2 }}
+      className="glass-card p-5 md:p-6 rounded-3xl border border-unseen-800/30 hover:border-unseen-400/50 hover:shadow-[0_0_30px_rgba(157,78,221,0.25)] transition-all duration-300 relative"
     >
       {/* Report Status Banner */}
       <AnimatePresence>
@@ -298,8 +299,10 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
         <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => goToProfile(authorId)}>
           <div className="relative flex-shrink-0">
             <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'} blur-md opacity-60`} />
-            <div className={`relative w-10 h-10 rounded-full bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'} border-2 border-[#080016]`}>
-              {/* Pure colored orb */}
+            <div className={`relative w-10 h-10 rounded-full bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'} border-2 border-[#080016] flex items-center justify-center shadow-inner`}>
+              <span className="text-white text-sm font-bold font-poppins uppercase select-none">
+                {author.displayName?.charAt(0) || author.username?.charAt(0) || '?'}
+              </span>
             </div>
           </div>
           <div>
@@ -443,8 +446,11 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                           className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-unseen-800/40 transition-colors text-left group/user active:scale-95"
                         >
                           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full shrink-0 overflow-hidden relative border border-[#080016] shadow-md">
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full shrink-0 overflow-hidden relative border border-[#080016] shadow-md flex items-center justify-center bg-gradient-to-br">
                               <div className={`absolute inset-0 bg-gradient-to-br ${u.avatarColor || 'from-violet-500 to-purple-900'}`} />
+                              <span className="relative z-10 text-white text-[10px] font-bold font-poppins uppercase select-none">
+                                {u.displayName?.charAt(0) || u.username?.charAt(0) || '?'}
+                              </span>
                             </div>
                             <div className="flex flex-col min-w-0">
                               <span className="text-[11px] sm:text-xs text-gray-200 font-semibold truncate group-hover/user:text-white transition-colors">{u.displayName}</span>
@@ -487,8 +493,10 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
               <div className="flex items-start space-x-3 mb-6">
                 <div className="relative flex-shrink-0">
                   <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${currentUser?.avatarColor || 'from-gray-500 to-gray-700'} blur-md opacity-60`} />
-                  <div className={`relative w-8 h-8 rounded-full bg-gradient-to-br ${currentUser?.avatarColor || 'from-gray-500 to-gray-700'} border-2 border-[#080016]`}>
-                    {/* Pure colored orb */}
+                  <div className={`relative w-8 h-8 rounded-full bg-gradient-to-br ${currentUser?.avatarColor || 'from-gray-500 to-gray-700'} border-2 border-[#080016] flex items-center justify-center shadow-inner`}>
+                    <span className="text-white text-xs font-bold font-poppins uppercase select-none">
+                      {currentUser?.displayName?.charAt(0) || currentUser?.username?.charAt(0) || '?'}
+                    </span>
                   </div>
                 </div>
                 <div className="flex-1 relative">
@@ -527,7 +535,11 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                     <div key={c._id} className="flex items-start space-x-3 group">
                       <div className="relative flex-shrink-0 mt-1">
                         <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${c.author.avatarColor} blur-sm opacity-60`} />
-                        <div className={`relative w-6 h-6 rounded-full bg-gradient-to-br ${c.author.avatarColor} border-[1.5px] border-[#080016]`} />
+                        <div className={`relative w-6 h-6 rounded-full bg-gradient-to-br ${c.author.avatarColor || 'from-gray-500 to-gray-700'} border-[1.5px] border-[#080016] flex items-center justify-center shadow-inner`}>
+                          <span className="text-white text-[9px] font-bold font-poppins uppercase select-none">
+                            {c.author.displayName?.charAt(0) || c.author.username?.charAt(0) || '?'}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex-1 bg-unseen-900/30 p-3 rounded-2xl rounded-tl-sm border border-unseen-800/30">
                         <div className="flex items-center space-x-2 mb-1">

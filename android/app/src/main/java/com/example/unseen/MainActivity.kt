@@ -179,10 +179,12 @@ class MainActivity : android.app.Activity() {
 
             // Append custom User Agent flag for client-side APK environment detection safely
             try {
-                val defaultUserAgent = userAgentString ?: ""
-                userAgentString = "$defaultUserAgent UnseenAndroidAPK"
+                val systemUserAgent = WebSettings.getDefaultUserAgent(this@MainActivity)
+                userAgentString = "$systemUserAgent UnseenAndroidAPK"
             } catch (e: Exception) {
                 // Fallback to default user agent setting if it fails
+                val defaultUserAgent = userAgentString ?: ""
+                userAgentString = "$defaultUserAgent UnseenAndroidAPK"
             }
         }
     }

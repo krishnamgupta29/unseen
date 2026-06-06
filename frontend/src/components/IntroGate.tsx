@@ -37,8 +37,8 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // If the intro has played or completed, handle routing guards
-    if (isHydrated && !showIntro && !authLoading) {
+    // Handle routing guards immediately once hydrated and auth is loaded (even if intro is still playing in the foreground)
+    if (isHydrated && !authLoading) {
       const isApk = typeof window !== 'undefined' && 
         (window.navigator.userAgent.includes('UnseenAndroidAPK') || 
          window.navigator.userAgent.includes('UnseenAPK') || 

@@ -1,0 +1,21 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../controllers/auth");
+const rateLimiter_1 = require("../middlewares/rateLimiter");
+const security_1 = require("../middlewares/security");
+const auth_2 = require("../middlewares/auth");
+const router = (0, express_1.Router)();
+router.post('/signup', rateLimiter_1.signupLimiter, security_1.sanitizeBody, auth_1.signupValidation, security_1.validateRequest, auth_1.signup);
+router.post('/login', rateLimiter_1.loginLimiter, security_1.sanitizeBody, auth_1.loginValidation, security_1.validateRequest, auth_1.login);
+router.post('/refresh', auth_1.refresh);
+router.post('/logout', auth_1.logout);
+router.get('/me', auth_2.authenticate, auth_1.getMe);
+router.post('/change-password', auth_2.authenticate, auth_1.changePassword);
+router.post('/forgot-password', auth_1.forgotPassword);
+router.post('/reset-password', auth_1.resetPassword);
+// Email management
+router.post('/email/send-otp', auth_2.authenticate, auth_1.sendEmailOtp);
+router.post('/email/verify-link', auth_2.authenticate, auth_1.verifyAndLinkEmail);
+router.post('/email/remove', auth_2.authenticate, auth_1.removeEmail);
+exports.default = router;

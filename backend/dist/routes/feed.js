@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const feed_1 = require("../controllers/feed");
+const auth_1 = require("../middlewares/auth");
+const rateLimiter_1 = require("../middlewares/rateLimiter");
+const security_1 = require("../middlewares/security");
+const moderation_1 = require("../middlewares/moderation");
+const router = (0, express_1.Router)();
+router.get('/', rateLimiter_1.feedLimiter, auth_1.optionalAuth, feed_1.getFeed);
+router.get('/stats', rateLimiter_1.feedLimiter, feed_1.getNetworkStats);
+router.get('/trending-tags', rateLimiter_1.feedLimiter, feed_1.getTrendingTags);
+router.get('/posts/:id', auth_1.optionalAuth, feed_1.getPostById);
+router.post('/posts', rateLimiter_1.postLimiter, auth_1.authenticate, security_1.sanitizeBody, moderation_1.moderatePostContent, feed_1.createPost);
+router.post('/interact', auth_1.authenticate, security_1.sanitizeBody, feed_1.recordInteraction);
+router.delete('/posts/:id', auth_1.authenticate, feed_1.deletePost);
+exports.default = router;

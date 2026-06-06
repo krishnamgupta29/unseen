@@ -62,7 +62,7 @@ class MainActivity : android.app.Activity() {
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
                 )
-                visibility = View.INVISIBLE // Hide initially to prevent white flashes
+                visibility = View.VISIBLE // Show immediately to display Next.js intro animation right away
                 setLayerType(View.LAYER_TYPE_HARDWARE, null) // Hardware acceleration enabled
             }
             setupWebViewSettings()
@@ -81,24 +81,19 @@ class MainActivity : android.app.Activity() {
             return
         }
 
-        // 3. Initialize Splash Screen Overlay
-        setupSplashOverlay()
-        rootLayout.addView(splashLayout)
-
         setContentView(rootLayout)
 
-        // 4. Fullscreen Immersive Mode Configuration (Safe to call after setContentView is executed)
+        // 3. Fullscreen Immersive Mode Configuration (Safe to call after setContentView is executed)
         setupFullscreenImmersive()
 
-        // 5. WebView Clients Configuration
+        // 4. WebView Clients Configuration
         webView.webChromeClient = WebChromeClient()
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Reveal WebView and fade out native splash screen
+                // Reveal WebView
                 if (webView.visibility != View.VISIBLE && offlineLayout == null) {
                     webView.visibility = View.VISIBLE
-                    fadeSplashOverlay()
                 }
             }
 

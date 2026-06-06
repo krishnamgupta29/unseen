@@ -22,6 +22,12 @@ export default function LoginPage() {
   useEffect(() => {
     // Disable heavy blurred orb animations on mobile/tablet to ensure butter-smooth performance
     setShouldAnimate(window.innerWidth >= 768);
+
+    // Silently wake up the Render.com backend (free tier sleeps after 15min inactivity)
+    // This ping happens immediately when the login page loads, so the server is ready
+    // by the time the user fills in their credentials and clicks submit
+    fetch('https://unseen-s9h8.onrender.com/api/health', { method: 'GET', mode: 'cors' })
+      .catch(() => { /* ignore — just a wakeup ping */ });
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {

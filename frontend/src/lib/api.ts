@@ -3,14 +3,22 @@
  * BASE already includes /api (from .env.local)
  */
 
+const PROD_API_URL = 'https://unseen-s9h8.onrender.com/api';
+
 const getApiUrl = () => {
-  let url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001/api';
+  // Always use env var if set, otherwise fall back to production URL (not localhost)
+  let url = process.env.NEXT_PUBLIC_API_URL || PROD_API_URL;
   
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    // If the frontend is loaded via a local IP (like 10.0.2.2 in emulator or 192.168.x.x in LAN),
-    // redirect localhost API requests to that specific hosting IP.
-    if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    // Only replace if the URL actually contains 'localhost' or '127.0.0.1'
+    // This prevents accidentally replacing parts of the production URL
+    if (
+      hostname &&
+      hostname !== 'localhost' &&
+      hostname !== '127.0.0.1' &&
+      (url.includes('localhost') || url.includes('127.0.0.1'))
+    ) {
       url = url.replace('localhost', hostname).replace('127.0.0.1', hostname);
     }
   }

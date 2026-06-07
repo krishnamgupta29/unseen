@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { playMessageSound } from '@/lib/sound';
 import { getSocket } from '@/lib/socketClient';
 import { useAppStore } from '@/lib/store';
+import { useShallow } from 'zustand/react/shallow';
 
 // Helper component for shared post rendering inside chat
 interface SharedPostPreviewProps {
@@ -108,7 +109,7 @@ export default function MessageThreadPage({ params }: { params: Promise<{ id: st
   const { currentUser } = useAppContext();
   
   const activeChat = useAppStore(state => state.profiles[participantId]);
-  const messages = useAppStore(state => state.messages[participantId] || []);
+  const messages = useAppStore(useShallow(state => state.messages[participantId] || []));
   
   const [loading, setLoading] = useState(!activeChat);
   const [msgText, setMsgText] = useState('');

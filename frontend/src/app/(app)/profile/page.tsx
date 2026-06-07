@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { users, auth } from '@/lib/api';
 import { getSocket } from '@/lib/socketClient';
 import { useAppStore } from '@/lib/store';
+import { useShallow } from 'zustand/react/shallow';
 
 const PostSkeleton = () => (
   <div className="p-6 border-b border-unseen-800/30 animate-pulse">
@@ -66,14 +67,19 @@ function ProfileContent() {
   const isOwnProfile = !targetId || targetId === currentUser?.id;
   const profileIdToFetch = (isOwnProfile ? currentUser?.id : targetId) || '';
   
-  // Store-backed cached state selectors
+  // Store-backed cached state selectors.
+  // useShallow compares array elements (not references) to prevent infinite loops.
   const profileUser = useAppStore(state => state.profiles[profileIdToFetch]);
   
-  const profilePostIds = useAppStore(state => state.feeds[`profile_${profileIdToFetch}`] || []);
-  const profilePosts = useAppStore(state => profilePostIds.map(id => state.posts[id]).filter(Boolean));
+  const profilePosts = useAppStore(useShallow(state => {
+    const ids = state.feeds[`profile_${profileIdToFetch}`] || [];
+    return ids.map(id => state.posts[id]).filter(Boolean);
+  }));
   
-  const savedPostIds = useAppStore(state => state.feeds[`saved_${profileIdToFetch}`] || []);
-  const savedPosts = useAppStore(state => savedPostIds.map(id => state.posts[id]).filter(Boolean));
+  const savedPosts = useAppStore(useShallow(state => {
+    const ids = state.feeds[`saved_${profileIdToFetch}`] || [];
+    return ids.map(id => state.posts[id]).filter(Boolean);
+  }));
 
   const [loadingProfile, setLoadingProfile] = useState(!profileUser);
   const [loadingPosts, setLoadingPosts] = useState(profilePosts.length === 0);

@@ -9,6 +9,7 @@ import { messages as apiMessages } from '@/lib/api';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSocket } from '@/lib/socketClient';
 import { useAppStore } from '@/lib/store';
+import { useShallow } from 'zustand/react/shallow';
 
 function MessagesContent() {
   const router = useRouter();
@@ -23,7 +24,7 @@ function MessagesContent() {
   }, [startId, router]);
   
   // Use store cached conversations list
-  const conversations = useAppStore(state => state.conversations);
+  const conversations = useAppStore(useShallow(state => state.conversations));
   const [loadingConversations, setLoadingConversations] = useState(conversations.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
 

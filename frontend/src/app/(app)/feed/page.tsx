@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header';
 import PostCard from '@/components/PostCard';
 import { feed, FeedMode } from '@/lib/api';
 import { useAppStore } from '@/lib/store';
+import { useShallow } from 'zustand/react/shallow';
 import { getSocket } from '@/lib/socketClient';
 
 const TABS: { id: FeedMode; label: string; emoji: string }[] = [
@@ -50,9 +51,13 @@ export default function FeedPage() {
 
   const tabsRef = useRef<HTMLDivElement>(null);
 
-  // Retrieve cached post IDs and objects from the Zustand store
-  const postIds = useAppStore(state => state.feeds[activeTab] || []);
-  const posts = useAppStore(state => postIds.map(id => state.posts[id]).filter(Boolean));
+  // Retrieve posts from the Zustand store.
+  // useShallow compares array elements (not reference) to prevent the
+  // "getSnapshot should be cached" infinite loop crash.
+  const posts = useAppStore(useShallow(state => {
+    const ids = state.feeds[activeTab] || [];
+    return ids.map(id => state.posts[id]).filter(Boolean);
+  }));
 
   // Load cached posts on mount / tab change
   useEffect(() => {

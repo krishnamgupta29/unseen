@@ -13,19 +13,22 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { currentUser, isLoading: authLoading } = useAppContext();
 
-  // Detect mobile device or APK environment immediately and persistently
-  const isMobileOrApk = useMemo(() => {
+  // Detect ONLY the native APK environment via the custom User-Agent flag set in MainActivity.kt
+  // Regular mobile browsers (Chrome, Safari on mobile) are NOT treated as APK — they see the home page
+  const isApk = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    const uaMatch = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(window.navigator.userAgent) ||
-                     window.navigator.userAgent.includes('UnseenAndroidAPK') || 
-                     window.navigator.userAgent.includes('UnseenAPK');
-    const storageMatch = localStorage.getItem('isApk') === 'true' || localStorage.getItem('isMobile') === 'true';
-    const screenMatch = window.innerWidth < 768;
-    
-    if (uaMatch && !storageMatch) {
+    const ua = window.navigator.userAgent;
+    const isApkUA = ua.includes('UnseenAndroidAPK') || ua.includes('UnseenAPK');
+
+    if (isApkUA) {
+      // Persist so page reloads inside APK also know the context
       localStorage.setItem('isApk', 'true');
+      return true;
     }
-    return uaMatch || storageMatch || screenMatch;
+
+    // Clear stale flag — mobile browser visits should NOT be treated as APK
+    localStorage.removeItem('isApk');
+    return false;
   }, []);
 
   useEffect(() => {
@@ -33,7 +36,6 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
 
     // Check if intro has played in the current tab session
     const sessionPlayed = sessionStorage.getItem('introPlayedSession');
-
     if (!sessionPlayed) {
       setShowIntro(true);
     }
@@ -52,22 +54,22 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Handle routing guards immediately once hydrated and auth is loaded
-    // This runs even while intro is playing, so the correct page is loaded underneath
+    // Handle routing guards once hydrated and auth is resolved
     if (isHydrated && !authLoading) {
-      // Unified Auth Guard for both Web and APK
       if (!currentUser) {
-        if (isMobileOrApk) {
-          // Mobile/APK: always redirect unauthenticated users to /login (no landing page) except for signup and download
+        if (isApk) {
+          // APK only: bypass landing page, send unauthenticated users straight to /login
           if (pathname !== '/login' && pathname !== '/signup' && pathname !== '/download') {
             router.replace('/login');
           } else {
             setRouteResolved(true);
           }
         } else {
-          // Desktop Web: unauthenticated users can access /, /login, /signup, /about, /privacy, /terms, /contact, /download
+          // Web (desktop + mobile browser): allow home page and public pages
           const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download'];
-          const isAllowed = allowedPaths.some(path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/')));
+          const isAllowed = allowedPaths.some(
+            path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/'))
+          );
           if (!isAllowed) {
             router.replace('/login');
           } else {
@@ -75,7 +77,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
           }
         }
       } else {
-        // Authenticated users should be redirected from auth / landing pages to /feed
+        // Authenticated users: redirect away from auth/landing pages to feed
         const authOrLandingPaths = ['/', '/login', '/signup'];
         if (authOrLandingPaths.includes(pathname)) {
           router.replace('/feed');
@@ -84,22 +86,24 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [isHydrated, authLoading, currentUser, pathname, router, isMobileOrApk]);
+  }, [isHydrated, authLoading, currentUser, pathname, router, isApk]);
 
-  // Mark route as resolved once pathname changes to the target destination
+  // Mark route as resolved once pathname is at the correct destination
   useEffect(() => {
     if (isHydrated && !authLoading) {
-      if (!currentUser && isMobileOrApk && (pathname === '/login' || pathname === '/signup' || pathname === '/download')) {
+      if (!currentUser && isApk && (pathname === '/login' || pathname === '/signup' || pathname === '/download')) {
         setRouteResolved(true);
-      } else if (!currentUser && !isMobileOrApk) {
+      } else if (!currentUser && !isApk) {
         const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download'];
-        const isAllowed = allowedPaths.some(path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/')));
+        const isAllowed = allowedPaths.some(
+          path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/'))
+        );
         if (isAllowed) setRouteResolved(true);
       } else if (currentUser && pathname !== '/' && pathname !== '/login' && pathname !== '/signup') {
         setRouteResolved(true);
       }
     }
-  }, [pathname, isHydrated, authLoading, currentUser, isMobileOrApk]);
+  }, [pathname, isHydrated, authLoading, currentUser, isApk]);
 
   // Prevent flash of page content during hydration
   if (!isHydrated) {
@@ -111,8 +115,8 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
     setShowIntro(false);
   };
 
-  // For mobile/APK users: hide children completely until route is resolved (prevents landing page flash)
-  const shouldHideContent = showIntro || (isMobileOrApk && !routeResolved);
+  // Only hide content for APK until route resolves (prevents landing page flash before redirect to /login)
+  const shouldHideContent = showIntro || (isApk && !routeResolved);
 
   return (
     <>
@@ -120,7 +124,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         <IntroAnimation key="intro" onComplete={handleIntroComplete} />
       )}
       
-      {/* Hide content while intro is playing or route hasn't resolved (Mobile/APK) */}
+      {/* Hide content while intro plays or APK route hasn't resolved yet */}
       <div className={shouldHideContent ? 'invisible h-0 overflow-hidden' : 'contents'}>
         {children}
       </div>

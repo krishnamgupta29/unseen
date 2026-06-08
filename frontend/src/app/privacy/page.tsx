@@ -28,8 +28,8 @@ export default function PrivacyPage() {
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Main Privacy Rules */}
-          <div className="lg:col-span-7 adaptive-card-grid">
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
+          <div className="lg:col-span-7 flex flex-col gap-6">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <EyeOff className="text-unseen-400" /> 1. The Philosophy of the Unseen
               </h2>
@@ -38,7 +38,7 @@ export default function PrivacyPage() {
               </p>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <Lock className="text-unseen-400" /> 2. What We Collect
               </h2>
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
               </ul>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1 sm:col-span-2">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <ShieldCheck className="text-unseen-400" /> 3. What We DON'T Collect
               </h2>

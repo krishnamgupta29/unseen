@@ -7,6 +7,7 @@ const security_1 = require("../middlewares/security");
 const router = (0, express_1.Router)();
 router.get('/search', auth_1.authenticate, users_1.searchUsers);
 router.put('/profile', auth_1.authenticate, security_1.sanitizeBody, users_1.updateProfile);
+router.delete('/profile', auth_1.authenticate, users_1.deleteAccount);
 router.get('/:id', auth_1.optionalAuth, users_1.getUserProfile);
 router.get('/:id/posts', auth_1.optionalAuth, users_1.getUserPosts);
 router.get('/:id/saved', auth_1.authenticate, users_1.getSavedPosts);

@@ -209,6 +209,7 @@ export const feed = {
 export const users = {
   getProfile: (id: string) => apiFetch<any>(`/users/${id}`),
   updateProfile: (data: { displayName?: string; bio?: string }) => apiFetch<any>('/users/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  deleteProfile: () => apiFetch<any>('/users/profile', { method: 'DELETE' }),
   getPosts: (id: string, page = 1) => apiFetch<{ posts: any[]; hasMore: boolean }>(`/users/${id}/posts?page=${page}`),
   getSavedPosts: (id: string) => apiFetch<{ posts: any[] }>(`/users/${id}/saved`),
   toggleFollow: (id: string) => apiFetch<{ message: string; isFollowing: boolean }>(`/users/${id}/follow`, { method: 'POST' }),

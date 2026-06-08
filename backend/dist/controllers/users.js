@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.reportUser = exports.updateProfile = exports.searchUsers = exports.getSavedPosts = exports.getFollowing = exports.getFollowers = exports.toggleFollow = exports.getUserPosts = exports.getUserProfile = void 0;
+exports.deleteAccount = exports.reportUser = exports.updateProfile = exports.searchUsers = exports.getSavedPosts = exports.getFollowing = exports.getFollowers = exports.toggleFollow = exports.getUserPosts = exports.getUserProfile = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const Post_1 = __importDefault(require("../models/Post"));
 const Follower_1 = __importDefault(require("../models/Follower"));
@@ -12,6 +12,10 @@ const Report_1 = __importDefault(require("../models/Report"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const notificationService_1 = require("../services/notificationService");
 const socketManager_1 = require("../services/socketManager");
+const Comment_1 = __importDefault(require("../models/Comment"));
+const Message_1 = __importDefault(require("../models/Message"));
+const Notification_1 = __importDefault(require("../models/Notification"));
+const RefreshToken_1 = __importDefault(require("../models/RefreshToken"));
 // ─── GET /api/users/:id ────────────────────────────────────────────────────
 const getUserProfile = async (req, res) => {
     try {
@@ -294,3 +298,34 @@ const reportUser = async (req, res) => {
     }
 };
 exports.reportUser = reportUser;
+// ─── DELETE /api/users/profile ──────────────────────────────────────────────
+const deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId)
+            return res.status(401).json({ message: 'Auth required' });
+        // 1. Delete user document
+        await User_1.default.findByIdAndDelete(userId);
+        // 2. Delete posts by this user
+        await Post_1.default.deleteMany({ author: userId });
+        // 3. Delete comments by this user
+        await Comment_1.default.deleteMany({ author: userId });
+        // 4. Delete followers/following links involving this user
+        await Follower_1.default.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
+        // 5. Delete user interactions by this user
+        await UserInteraction_1.default.deleteMany({ userId });
+        // 6. Delete reports filed by or against this user
+        await Report_1.default.deleteMany({ $or: [{ reporter: userId }, { reportedUser: userId }] });
+        // 7. Delete refresh tokens for this user
+        await RefreshToken_1.default.deleteMany({ userId });
+        // 8. Delete messages sent or received by this user
+        await Message_1.default.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] });
+        // 9. Delete notifications related to this user
+        await Notification_1.default.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] });
+        res.json({ message: 'Account permanently deleted' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+exports.deleteAccount = deleteAccount;

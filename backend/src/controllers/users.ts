@@ -8,6 +8,10 @@ import Report from '../models/Report';
 import mongoose from 'mongoose';
 import { createNotification } from '../services/notificationService';
 import { broadcastEvent } from '../services/socketManager';
+import Comment from '../models/Comment';
+import Message from '../models/Message';
+import Notification from '../models/Notification';
+import RefreshToken from '../models/RefreshToken';
 
 // ─── GET /api/users/:id ────────────────────────────────────────────────────
 export const getUserProfile = async (req: AuthRequest, res: Response) => {
@@ -316,6 +320,45 @@ export const reportUser = async (req: AuthRequest, res: Response) => {
     await createNotification(targetId as string, 'REPORT', req.user.id as string, contentId as string, reason as string);
 
     res.json({ message: 'Report submitted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// ─── DELETE /api/users/profile ──────────────────────────────────────────────
+export const deleteAccount = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Auth required' });
+
+    // 1. Delete user document
+    await User.findByIdAndDelete(userId);
+
+    // 2. Delete posts by this user
+    await Post.deleteMany({ author: userId });
+
+    // 3. Delete comments by this user
+    await Comment.deleteMany({ author: userId });
+
+    // 4. Delete followers/following links involving this user
+    await Follower.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
+
+    // 5. Delete user interactions by this user
+    await UserInteraction.deleteMany({ userId });
+
+    // 6. Delete reports filed by or against this user
+    await Report.deleteMany({ $or: [{ reporter: userId }, { reportedUser: userId }] });
+
+    // 7. Delete refresh tokens for this user
+    await RefreshToken.deleteMany({ userId });
+
+    // 8. Delete messages sent or received by this user
+    await Message.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] });
+
+    // 9. Delete notifications related to this user
+    await Notification.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] });
+
+    res.json({ message: 'Account permanently deleted' });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

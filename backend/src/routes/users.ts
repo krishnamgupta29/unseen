@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getUserProfile, getUserPosts, toggleFollow, getFollowers, getFollowing, searchUsers, updateProfile, getSavedPosts, reportUser } from '../controllers/users';
+import { getUserProfile, getUserPosts, toggleFollow, getFollowers, getFollowing, searchUsers, updateProfile, getSavedPosts, reportUser, deleteAccount } from '../controllers/users';
 import { authenticate, optionalAuth } from '../middlewares/auth';
 import { sanitizeBody } from '../middlewares/security';
 
@@ -7,6 +7,7 @@ const router = Router();
 
 router.get('/search', authenticate, searchUsers);
 router.put('/profile', authenticate, sanitizeBody, updateProfile);
+router.delete('/profile', authenticate, deleteAccount);
 router.get('/:id', optionalAuth, getUserProfile);
 router.get('/:id/posts', optionalAuth, getUserPosts);
 router.get('/:id/saved', authenticate, getSavedPosts);

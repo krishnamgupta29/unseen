@@ -28,8 +28,8 @@ export default function TermsPage() {
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* Terms Section List */}
-          <div className="lg:col-span-7 adaptive-card-grid">
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
+          <div className="lg:col-span-7 flex flex-col gap-6">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <BookOpen className="text-unseen-400" /> 1. Acceptance of Terms
               </h2>
@@ -38,7 +38,7 @@ export default function TermsPage() {
               </p>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <AlertTriangle className="text-unseen-400" /> 2. Community Guidelines
               </h2>
@@ -52,7 +52,7 @@ export default function TermsPage() {
               </ul>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <Scale className="text-unseen-400" /> 3. Account Moderation
               </h2>
@@ -61,7 +61,7 @@ export default function TermsPage() {
               </p>
             </div>
 
-            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30 col-span-1">
+            <div className="glass p-8 md:p-10 rounded-3xl border border-unseen-800/50 bg-[#09031a]/30">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
                 <ScrollText className="text-unseen-400" /> 4. Limitation of Liability
               </h2>

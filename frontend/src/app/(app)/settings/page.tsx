@@ -4,6 +4,7 @@ import { Shield, Info, LogOut, Key, ChevronLeft, Trash2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
+import { users } from '@/lib/api';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -66,11 +67,14 @@ export default function SettingsPage() {
               <span>Log Out</span>
             </button>
             <button 
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm('Are you sure you want to permanently delete your identity? This cannot be undone.')) {
-                  localStorage.removeItem('token');
-                  localStorage.removeItem('user');
-                  router.push('/login');
+                  try {
+                    await users.deleteProfile();
+                  } catch (e) {
+                    console.error('Failed to delete account on server', e);
+                  }
+                  logout();
                 }
               }}
               className="w-full flex items-center p-4 rounded-xl hover:bg-red-500/20 bg-red-500/5 text-red-500 transition-colors text-left mt-2"

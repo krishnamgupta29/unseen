@@ -304,27 +304,32 @@ const deleteAccount = async (req, res) => {
         const userId = req.user?.id;
         if (!userId)
             return res.status(401).json({ message: 'Auth required' });
-        // 1. Delete user document
-        await User_1.default.findByIdAndDelete(userId);
-        // 2. Delete posts by this user
-        await Post_1.default.deleteMany({ author: userId });
-        // 3. Delete comments by this user
-        await Comment_1.default.deleteMany({ author: userId });
-        // 4. Delete followers/following links involving this user
-        await Follower_1.default.deleteMany({ $or: [{ follower: userId }, { following: userId }] });
-        // 5. Delete user interactions by this user
-        await UserInteraction_1.default.deleteMany({ userId });
-        // 6. Delete reports filed by or against this user
-        await Report_1.default.deleteMany({ $or: [{ reporter: userId }, { reportedUser: userId }] });
-        // 7. Delete refresh tokens for this user
-        await RefreshToken_1.default.deleteMany({ userId });
-        // 8. Delete messages sent or received by this user
-        await Message_1.default.deleteMany({ $or: [{ sender: userId }, { receiver: userId }] });
-        // 9. Delete notifications related to this user
-        await Notification_1.default.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] });
+        const userObjectId = new mongoose_1.default.Types.ObjectId(userId);
+        // 1. Delete user document (Core action)
+        await User_1.default.findByIdAndDelete(userObjectId);
+        // Run other cleanups safely (so if one model delete fails, it does not abort the whole deletion)
+        const cleanups = [
+            () => Post_1.default.deleteMany({ author: userObjectId }),
+            () => Comment_1.default.deleteMany({ author: userObjectId }),
+            () => Follower_1.default.deleteMany({ $or: [{ follower: userObjectId }, { following: userObjectId }] }),
+            () => UserInteraction_1.default.deleteMany({ userId: userObjectId }),
+            () => Report_1.default.deleteMany({ $or: [{ reporter: userObjectId }, { reportedUser: userObjectId }] }),
+            () => RefreshToken_1.default.deleteMany({ userId: userObjectId }),
+            () => Message_1.default.deleteMany({ $or: [{ sender: userObjectId }, { receiver: userObjectId }] }),
+            () => Notification_1.default.deleteMany({ $or: [{ recipient: userObjectId }, { sender: userObjectId }] })
+        ];
+        for (const cleanup of cleanups) {
+            try {
+                await cleanup();
+            }
+            catch (err) {
+                console.error('Secondary cleanup failed during account deletion:', err.message);
+            }
+        }
         res.json({ message: 'Account permanently deleted' });
     }
     catch (error) {
+        console.error('Core user deletion failed:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

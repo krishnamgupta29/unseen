@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import IntroAnimation from '@/components/IntroAnimation';
-import { AnimatePresence } from 'framer-motion';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
 
@@ -14,16 +13,19 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { currentUser, isLoading: authLoading } = useAppContext();
 
-  // Detect APK environment immediately and persistently
-  const isApk = useMemo(() => {
+  // Detect mobile device or APK environment immediately and persistently
+  const isMobileOrApk = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    const uaMatch = window.navigator.userAgent.includes('UnseenAndroidAPK') || 
+    const uaMatch = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(window.navigator.userAgent) ||
+                     window.navigator.userAgent.includes('UnseenAndroidAPK') || 
                      window.navigator.userAgent.includes('UnseenAPK');
-    const storageMatch = localStorage.getItem('isApk') === 'true';
+    const storageMatch = localStorage.getItem('isApk') === 'true' || localStorage.getItem('isMobile') === 'true';
+    const screenMatch = window.innerWidth < 768;
+    
     if (uaMatch && !storageMatch) {
       localStorage.setItem('isApk', 'true');
     }
-    return uaMatch || storageMatch;
+    return uaMatch || storageMatch || screenMatch;
   }, []);
 
   useEffect(() => {
@@ -55,15 +57,15 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
     if (isHydrated && !authLoading) {
       // Unified Auth Guard for both Web and APK
       if (!currentUser) {
-        if (isApk) {
-          // APK: always redirect unauthenticated users to /login (no landing page)
+        if (isMobileOrApk) {
+          // Mobile/APK: always redirect unauthenticated users to /login (no landing page)
           if (pathname !== '/login' && pathname !== '/signup') {
             router.replace('/login');
           } else {
             setRouteResolved(true);
           }
         } else {
-          // Web: unauthenticated users can access /, /login, /signup, /about, /privacy, /terms, /contact
+          // Desktop Web: unauthenticated users can access /, /login, /signup, /about, /privacy, /terms, /contact
           const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact'];
           const isAllowed = allowedPaths.some(path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/')));
           if (!isAllowed) {
@@ -82,14 +84,14 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [isHydrated, authLoading, currentUser, pathname, router, isApk]);
+  }, [isHydrated, authLoading, currentUser, pathname, router, isMobileOrApk]);
 
   // Mark route as resolved once pathname changes to the target destination
   useEffect(() => {
     if (isHydrated && !authLoading) {
-      if (!currentUser && isApk && (pathname === '/login' || pathname === '/signup')) {
+      if (!currentUser && isMobileOrApk && (pathname === '/login' || pathname === '/signup')) {
         setRouteResolved(true);
-      } else if (!currentUser && !isApk) {
+      } else if (!currentUser && !isMobileOrApk) {
         const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact'];
         const isAllowed = allowedPaths.some(path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/')));
         if (isAllowed) setRouteResolved(true);
@@ -97,7 +99,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         setRouteResolved(true);
       }
     }
-  }, [pathname, isHydrated, authLoading, currentUser, isApk]);
+  }, [pathname, isHydrated, authLoading, currentUser, isMobileOrApk]);
 
   // Prevent flash of page content during hydration
   if (!isHydrated) {
@@ -109,18 +111,16 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
     setShowIntro(false);
   };
 
-  // For APK users: hide children completely until route is resolved (prevents landing page flash)
-  const shouldHideContent = showIntro || (isApk && !routeResolved);
+  // For mobile/APK users: hide children completely until route is resolved (prevents landing page flash)
+  const shouldHideContent = showIntro || (isMobileOrApk && !routeResolved);
 
   return (
     <>
-      <AnimatePresence mode="wait">
-        {showIntro && (
-          <IntroAnimation key="intro" onComplete={handleIntroComplete} />
-        )}
-      </AnimatePresence>
+      {showIntro && (
+        <IntroAnimation key="intro" onComplete={handleIntroComplete} />
+      )}
       
-      {/* Hide content while intro is playing or route hasn't resolved (APK) */}
+      {/* Hide content while intro is playing or route hasn't resolved (Mobile/APK) */}
       <div className={shouldHideContent ? 'invisible h-0 overflow-hidden' : 'contents'}>
         {children}
       </div>

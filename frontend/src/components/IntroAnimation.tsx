@@ -1,142 +1,168 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 export default function IntroAnimation({ onComplete }: { onComplete: () => void }) {
-  const isApk = useMemo(() => {
+  const [isExiting, setIsExiting] = useState(false);
+
+  const isMobile = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    return window.navigator.userAgent.includes('UnseenAndroidAPK') || 
-           window.navigator.userAgent.includes('UnseenAPK') ||
+    return window.innerWidth < 768 || 
+           /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent) ||
            localStorage.getItem('isApk') === 'true';
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onComplete();
-    }, 2200); // 2.2s duration so user can read the logo and tagline
-    return () => clearTimeout(timer);
+    // Total duration of intro before exit starts: 1.2s (make it fast!)
+    const exitTimer = setTimeout(() => {
+      setIsExiting(true);
+      // Let the fade-out CSS transition play for 300ms, then complete
+      const completeTimer = setTimeout(() => {
+        onComplete();
+      }, 300);
+      return () => clearTimeout(completeTimer);
+    }, 1200);
+
+    return () => clearTimeout(exitTimer);
   }, [onComplete]);
 
   const letters = Array.from("UNSEEN");
 
   return (
-    <motion.div
-      className="fixed inset-0 z-[999] flex flex-col items-center justify-center bg-[#000000] overflow-hidden select-none"
-      exit={{ opacity: 0, scale: 1.02, transition: { duration: 0.4, ease: 'easeOut' } }}
-      onCopy={(e) => e.preventDefault()}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {/* Render simple, high-performance elements for mobile/APK to prevent hanging */}
-      {isApk ? (
-        <div className="relative z-10 flex flex-col items-center">
-          <motion.h1
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="font-poppins font-black text-white tracking-[0.1em] font-sans"
-            style={{
-              fontSize: 'clamp(2.5rem, 8vw, 6.5rem)',
-            }}
-          >
-            UNSEEN
-          </motion.h1>
+    <>
+      <style>{`
+        .intro-container {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background-color: #000000;
+          overflow: hidden;
+          user-select: none;
+          transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+          will-change: opacity, transform;
+        }
+        .intro-container.exiting {
+          opacity: 0;
+          transform: scale(1.02);
+          pointer-events: none;
+        }
+        .intro-letter {
+          display: inline-block;
+          font-family: var(--font-poppins), sans-serif;
+          font-weight: 900;
+          color: #ffffff;
+          letter-spacing: 0.1em;
+          font-size: clamp(2.5rem, 8vw, 6.5rem);
+          opacity: 0;
+          animation: cssFadeInY 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+          will-change: transform, opacity;
+        }
+        @media (min-width: 768px) {
+          .intro-letter {
+            letter-spacing: 0.2em;
+            text-shadow: 0 0 20px rgba(192,132,252,0.6), 0 0 40px rgba(157,78,221,0.3);
+          }
+        }
+        .intro-line {
+          margin-top: 1rem;
+          height: 1.5px;
+          border-radius: 9999px;
+          background: linear-gradient(90deg, transparent, rgba(192,132,252,0.6), transparent);
+          opacity: 0;
+          animation: cssScaleWidth 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+          animation-delay: 0.35s;
+          will-change: width, opacity;
+        }
+        .intro-tagline {
+          margin-top: 1.5rem;
+          font-family: var(--font-inter), sans-serif;
+          text-align: center;
+          color: rgba(216, 180, 254, 0.8);
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+          font-size: clamp(0.6rem, 1.2vw, 0.8rem);
+          opacity: 0;
+          animation: cssFadeIn 0.4s ease-out forwards;
+          animation-delay: 0.5s;
+          will-change: opacity;
+        }
+        .intro-radial-glow {
+          position: absolute;
+          border-radius: 9999px;
+          width: 320px;
+          height: 320px;
+          background: radial-gradient(circle, rgba(157,78,221,0.25) 0%, rgba(123,44,191,0.06) 50%, transparent 70%);
+          pointer-events: none;
+        }
+        .intro-outer-glow {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(ellipse at center, transparent 40%, rgba(88,28,135,0.1) 100%);
+          pointer-events: none;
+        }
+        .intro-vignette {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          box-shadow: inset 0 0 100px rgba(0,0,0,0.95);
+        }
 
-          {/* Static thin line */}
-          <div
-            className="mt-4 rounded-full"
-            style={{
-              width: '70%',
-              height: 1.5,
-              background: 'linear-gradient(90deg, transparent, rgba(192,132,252,0.4), transparent)',
-            }}
-          />
+        @keyframes cssFadeInY {
+          from { opacity: 0; transform: translateY(15px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes cssScaleWidth {
+          from { width: 0; opacity: 0; }
+          to { width: 70%; opacity: 1; }
+        }
+        @keyframes cssFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
 
-          {/* Simple tagline fade */}
-          <motion.p
-            className="mt-6 font-inter text-center text-purple-300/80 tracking-[0.2em] uppercase text-xs"
-            style={{ fontSize: 'clamp(0.6rem, 1.2vw, 0.8rem)' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.3, ease: 'easeOut' }}
-          >
-            Say it.&nbsp;&nbsp;Without being seen.
-          </motion.p>
-        </div>
-      ) : (
-        <>
-          {/* === Central Radial Glow (behind the logo) === */}
-          <div
-            className="absolute rounded-full pointer-events-none"
-            style={{
-              width: 320,
-              height: 320,
-              background: 'radial-gradient(circle, rgba(157,78,221,0.25) 0%, rgba(123,44,191,0.06) 50%, transparent 70%)',
-            }}
-          />
-
-          {/* === Soft outer edge glow === */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: 'radial-gradient(ellipse at center, transparent 40%, rgba(88,28,135,0.1) 100%)',
-            }}
-          />
-
-          {/* === Logo === */}
+      <div className={`intro-container ${isExiting ? 'exiting' : ''}`}>
+        {isMobile ? (
+          /* Sleek, optimized simple layout for mobile to prevent any potential GPU stutter */
           <div className="relative z-10 flex flex-col items-center">
-            <div className="flex overflow-hidden">
-              {letters.map((char, index) => (
-                <motion.span
-                  key={index}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ 
-                    opacity: 1, 
-                    y: 0
-                  }}
-                  transition={{
-                    opacity: { duration: 0.35, delay: 0.04 * index, ease: 'easeOut' },
-                    y: { duration: 0.35, delay: 0.04 * index, ease: 'easeOut' }
-                  }}
-                  className="font-poppins font-black text-white tracking-[0.1em] md:tracking-[0.2em] inline-block font-sans"
-                  style={{
-                    fontSize: 'clamp(2.5rem, 8vw, 6.5rem)',
-                    textShadow: '0 0 20px rgba(192,132,252,0.6), 0 0 40px rgba(157,78,221,0.3)',
-                  }}
-                >
-                  {char}
-                </motion.span>
-              ))}
-            </div>
-
-            {/* Thin glowing underline */}
-            <motion.div
-              className="mt-4 rounded-full"
-              style={{
-                height: 1.5,
-                background: 'linear-gradient(90deg, transparent, rgba(192,132,252,0.6), transparent)',
-              }}
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: '70%', opacity: 1 }}
-              transition={{ duration: 0.45, delay: 0.35, ease: 'easeOut' }}
-            />
-
-            {/* Tagline */}
-            <motion.p
-              className="mt-6 font-inter text-center text-purple-300/80 tracking-[0.25em] uppercase text-xs"
-              style={{ fontSize: 'clamp(0.6rem, 1.2vw, 0.8rem)' }}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.5, ease: 'easeOut' }}
-            >
+            <h1 className="intro-letter" style={{ opacity: 1, animation: 'none' }}>
+              UNSEEN
+            </h1>
+            <div className="mt-4 rounded-full" style={{ width: '70%', height: 1.5, background: 'linear-gradient(90deg, transparent, rgba(192,132,252,0.4), transparent)' }} />
+            <p className="mt-6 font-inter text-center text-purple-300/80 tracking-[0.2em] uppercase text-xs">
               Say it.&nbsp;&nbsp;Without being seen.
-            </motion.p>
+            </p>
           </div>
-
-          {/* === Corner vignette edges (ambient) === */}
-          <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_100px_rgba(0,0,0,0.95)]" />
-        </>
-      )}
-    </motion.div>
+        ) : (
+          /* Desktop layout with radial glows, letter stagger, etc. */
+          <>
+            <div className="intro-radial-glow" />
+            <div className="intro-outer-glow" />
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="flex overflow-hidden">
+                {letters.map((char, index) => (
+                  <span
+                    key={index}
+                    className="intro-letter"
+                    style={{ animationDelay: `${0.04 * index}s` }}
+                  >
+                    {char}
+                  </span>
+                ))}
+              </div>
+              <div className="intro-line" />
+              <p className="intro-tagline">
+                Say it.&nbsp;&nbsp;Without being seen.
+              </p>
+            </div>
+            <div className="intro-vignette" />
+          </>
+        )}
+      </div>
+    </>
   );
 }

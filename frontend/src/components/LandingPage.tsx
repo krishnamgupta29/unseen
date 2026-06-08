@@ -78,9 +78,9 @@ export default function LandingPage() {
           <Link href="/signup" className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-gradient-to-r from-unseen-600 to-unseen-800 text-white font-semibold text-base md:text-lg hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] transition-all transform md:hover:scale-105 active:scale-95 text-center flex items-center justify-center">
             Join Unseen
           </Link>
-          <a href="/unseen.apk" download className="w-full sm:w-auto px-8 py-3.5 rounded-full glass glass-glow text-white font-semibold text-base md:text-lg transition-all flex items-center justify-center gap-2 text-center transform md:hover:scale-105 active:scale-95">
+          <Link href="/download" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-8 py-3.5 rounded-full glass glass-glow text-white font-semibold text-base md:text-lg transition-all flex items-center justify-center gap-2 text-center transform md:hover:scale-105 active:scale-95">
             <Download className="w-4 h-4 md:w-5 md:h-5" /> Download APK
-          </a>
+          </Link>
         </motion.div>
       </section>
 

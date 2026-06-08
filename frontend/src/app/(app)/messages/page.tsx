@@ -1,7 +1,7 @@
 'use client';
 
 export const dynamic = "force-dynamic";
-import { Search, MessageSquare, Loader2 } from 'lucide-react';
+import { Search, MessageSquare, Loader2, Shield } from 'lucide-react';
 import { useState, useEffect, Suspense } from 'react';
 import Header from '@/components/layout/Header';
 import { useAppContext } from '@/context/AppContext';
@@ -10,25 +10,32 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getSocket } from '@/lib/socketClient';
 import { useAppStore } from '@/lib/store';
 import { useShallow } from 'zustand/react/shallow';
+import ChatThread from '@/components/ChatThread';
 
 function MessagesContent() {
   const router = useRouter();
   const { currentUser } = useAppContext();
   const searchParams = useSearchParams();
   const startId = searchParams.get('start');
+  const queryId = searchParams.get('id');
+  
+  const activeChatUserId = queryId || startId || null;
 
-  useEffect(() => {
-    if (startId) {
-      router.replace(`/messages/${startId}`);
-    }
-  }, [startId, router]);
+  const handleSelectChat = (participantId: string) => {
+    // Fast inline navigation using query params instead of slow Next.js page change
+    router.push(`/messages?id=${participantId}`);
+  };
+
+  const handleClearChat = () => {
+    router.push('/messages');
+  };
   
   // Use store cached conversations list
   const conversations = useAppStore(useShallow(state => state.conversations));
   const [loadingConversations, setLoadingConversations] = useState(conversations.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 1. Fetch conversations on mount and socket events
+  // Fetch conversations on mount and socket events
   useEffect(() => {
     if (!currentUser) return;
     
@@ -65,7 +72,7 @@ function MessagesContent() {
 
   if (!currentUser) {
     return (
-      <div className="w-full h-screen flex items-center justify-center">
+      <div className="w-full h-screen flex items-center justify-center bg-[#080016]">
         <Loader2 className="w-8 h-8 animate-spin text-unseen-400" />
       </div>
     );
@@ -78,76 +85,107 @@ function MessagesContent() {
   );
 
   return (
-    <div className="w-full min-h-screen flex flex-col relative overflow-hidden pb-20 md:pb-6">
-      <Header title="Secure Inbox" />
-      
-      {/* Conversation Search Bar */}
-      <div className="p-4 border-b border-unseen-800/30 bg-[#080016]/50">
-        <div className="relative w-full">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-500" />
+    <div className="w-full h-screen flex bg-[#080016] relative overflow-hidden">
+      {/* List Pane */}
+      <div className={`w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col h-full border-r border-unseen-800/30 bg-[#080016] pb-20 md:pb-0 ${
+        activeChatUserId ? 'hidden md:flex' : 'flex'
+      }`}>
+        <Header title="Secure Inbox" />
+        
+        {/* Conversation Search Bar */}
+        <div className="p-4 border-b border-unseen-800/30 bg-[#080016]/50">
+          <div className="relative w-full">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-500" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-unseen-900/50 border border-unseen-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-unseen-500 transition-colors"
+              placeholder="Search secure threads..."
+            />
           </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-unseen-900/50 border border-unseen-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-unseen-500 transition-colors"
-            placeholder="Search secure threads..."
-          />
+        </div>
+
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto">
+          {loadingConversations ? (
+            <div className="p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[300px]">
+              <Loader2 className="w-8 h-8 animate-spin text-unseen-400 mb-3" />
+              <p className="text-sm font-mono text-unseen-300">Decrypting secure protocols...</p>
+            </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500 h-full min-h-[400px]">
+              <div className="w-16 h-16 rounded-full bg-unseen-900/40 flex items-center justify-center mb-4 border border-unseen-800/30">
+                <MessageSquare className="w-7 h-7 text-unseen-400 opacity-60" />
+              </div>
+              <p className="text-lg font-semibold text-gray-200">No active threads</p>
+              <p className="text-xs mt-1.5 max-w-xs text-gray-400 leading-relaxed">
+                Go to the Feed, click on any shadow's profile name, and tap the Message icon to initiate an untraceable, end-to-end encrypted conversation.
+              </p>
+            </div>
+          ) : (
+            <div className="p-2 space-y-1">
+              <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 py-2">Conversations</h3>
+              {filteredConversations.map(c => {
+                const isSelected = activeChatUserId === c.participant._id;
+                return (
+                  <div 
+                    key={c.conversationId}
+                    onClick={() => c.participant._id && handleSelectChat(c.participant._id)}
+                    className={`flex items-center space-x-3.5 p-3.5 rounded-2xl cursor-pointer transition-all border ${
+                      isSelected 
+                        ? 'bg-unseen-800/30 border-unseen-500/30 shadow-[0_0_15px_rgba(123,44,191,0.15)]' 
+                        : 'hover:bg-unseen-800/20 border-transparent hover:border-unseen-800/30'
+                    }`}
+                  >
+                    <div className="relative flex-shrink-0">
+                      <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${c.participant.avatarColor || 'from-unseen-500 to-unseen-800'} blur-[8px] opacity-60`} />
+                      <div className={`relative w-11 h-11 rounded-full bg-gradient-to-br ${c.participant.avatarColor || 'from-unseen-500 to-unseen-800'} border-2 border-[#080016]`}>
+                        {/* Pure colored orb */}
+                      </div>
+                      {c.unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-unseen-500 text-white font-bold font-mono text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#080016] shadow-[0_0_8px_#7b2cbf]">
+                          {c.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline mb-0.5">
+                        <p className="text-white text-sm font-semibold truncate">{c.participant.displayName}</p>
+                        <span className="text-[10px] text-gray-500 font-mono">
+                          {new Date(c.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className={`text-xs truncate ${c.unreadCount > 0 ? 'text-unseen-200 font-semibold' : 'text-gray-400'}`}>
+                        {c.lastMessage.sender === currentUser.id ? 'You: ' : ''}
+                        {c.lastMessage.content.match(/(\/post\/|\[POST_SHARE:)[a-f\d]{24}/i) ? 'Shared a whisper' : c.lastMessage.content}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Conversations List */}
-      <div className="flex-1 overflow-y-auto">
-        {loadingConversations ? (
-          <div className="p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[300px]">
-            <Loader2 className="w-8 h-8 animate-spin text-unseen-400 mb-3" />
-            <p className="text-sm font-mono">Decrypting secure protocols...</p>
-          </div>
-        ) : filteredConversations.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500 h-full min-h-[400px]">
-            <div className="w-16 h-16 rounded-full bg-unseen-900/40 flex items-center justify-center mb-4 border border-unseen-800/30">
-              <MessageSquare className="w-7 h-7 text-unseen-400 opacity-60" />
-            </div>
-            <p className="text-lg font-semibold text-gray-200">No active threads</p>
-            <p className="text-xs mt-1.5 max-w-xs text-gray-400 leading-relaxed">
-              Go to the Feed, click on any shadow's profile name, and tap the Message icon to initiate an untraceable, end-to-end encrypted conversation.
-            </p>
-          </div>
+      {/* Chat Pane */}
+      <div className={`flex-1 h-full bg-[#080016] z-10 ${
+        activeChatUserId ? 'flex' : 'hidden md:flex items-center justify-center'
+      }`}>
+        {activeChatUserId ? (
+          <ChatThread participantId={activeChatUserId} onBack={handleClearChat} />
         ) : (
-          <div className="p-2 space-y-1">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 py-2">Conversations</h3>
-            {filteredConversations.map(c => (
-              <div 
-                key={c.conversationId}
-                onClick={() => router.push(`/messages/${c.participant._id}`)}
-                className="flex items-center space-x-3.5 p-3.5 hover:bg-unseen-800/20 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-unseen-800/30"
-              >
-                <div className="relative flex-shrink-0">
-                  <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${c.participant.avatarColor || 'from-unseen-500 to-unseen-800'} blur-[8px] opacity-60`} />
-                  <div className={`relative w-11 h-11 rounded-full bg-gradient-to-br ${c.participant.avatarColor || 'from-unseen-500 to-unseen-800'} border-2 border-[#080016]`}>
-                    {/* Pure colored orb */}
-                  </div>
-                  {c.unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-unseen-500 text-white font-bold font-mono text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#080016] shadow-[0_0_8px_#7b2cbf]">
-                      {c.unreadCount}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-baseline mb-0.5">
-                    <p className="text-white text-sm font-semibold truncate">{c.participant.displayName}</p>
-                    <span className="text-[10px] text-gray-500 font-mono">
-                      {new Date(c.lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <p className={`text-xs truncate ${c.unreadCount > 0 ? 'text-unseen-200 font-semibold' : 'text-gray-400'}`}>
-                    {c.lastMessage.sender === currentUser.id ? 'You: ' : ''}
-                    {c.lastMessage.content.match(/(\/post\/|\[POST_SHARE:)[a-f\d]{24}/i) ? 'Shared a whisper' : c.lastMessage.content}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="text-center p-8 text-gray-500 max-w-sm flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-unseen-900/30 flex items-center justify-center mb-4 border border-unseen-800/40 shadow-[0_0_20px_rgba(157,78,221,0.05)]">
+              <Shield className="w-8 h-8 text-unseen-500 opacity-60" />
+            </div>
+            <h3 className="text-white font-bold text-base mb-1.5 font-poppins">Secure inbox selected</h3>
+            <p className="text-xs text-gray-400 leading-relaxed font-inter">
+              Select a thread from the list on the left to view messages. Your chat content is always symmetric AES encrypted.
+            </p>
           </div>
         )}
       </div>
@@ -158,7 +196,7 @@ function MessagesContent() {
 export default function MessagesPage() {
   return (
     <Suspense fallback={
-      <div className="w-full h-screen flex items-center justify-center">
+      <div className="w-full h-screen flex items-center justify-center bg-[#080016]">
         <Loader2 className="w-8 h-8 animate-spin text-unseen-400" />
       </div>
     }>

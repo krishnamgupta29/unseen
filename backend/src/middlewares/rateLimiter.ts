@@ -14,8 +14,8 @@ const buildLimiter = (windowMin: number, max: number, message: string) =>
   });
 
 // Auth endpoints — strict
-export const loginLimiter = buildLimiter(15, 5, 'Too many login attempts. Try again in 15 minutes.');
-export const signupLimiter = buildLimiter(60, 3, 'Too many accounts created. Try again in 1 hour.');
+export const loginLimiter = buildLimiter(15, 10, 'Too many login attempts. Try again in 15 minutes.');
+export const signupLimiter = buildLimiter(60, 10, 'Too many accounts created from this network. Try again in 1 hour.');
 export const passwordResetLimiter = buildLimiter(60, 3, 'Too many password reset requests.');
 
 // Post creation

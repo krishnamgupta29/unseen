@@ -16,8 +16,8 @@ const buildLimiter = (windowMin, max, message) => (0, express_rate_limit_1.defau
     },
 });
 // Auth endpoints — strict
-exports.loginLimiter = buildLimiter(15, 5, 'Too many login attempts. Try again in 15 minutes.');
-exports.signupLimiter = buildLimiter(60, 3, 'Too many accounts created. Try again in 1 hour.');
+exports.loginLimiter = buildLimiter(15, 10, 'Too many login attempts. Try again in 15 minutes.');
+exports.signupLimiter = buildLimiter(60, 10, 'Too many accounts created from this network. Try again in 1 hour.');
 exports.passwordResetLimiter = buildLimiter(60, 3, 'Too many password reset requests.');
 // Post creation
 exports.postLimiter = buildLimiter(1, 10, 'Posting too fast. Slow down.');

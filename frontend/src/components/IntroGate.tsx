@@ -58,15 +58,15 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
       // Unified Auth Guard for both Web and APK
       if (!currentUser) {
         if (isMobileOrApk) {
-          // Mobile/APK: always redirect unauthenticated users to /login (no landing page)
-          if (pathname !== '/login' && pathname !== '/signup') {
+          // Mobile/APK: always redirect unauthenticated users to /login (no landing page) except for signup and download
+          if (pathname !== '/login' && pathname !== '/signup' && pathname !== '/download') {
             router.replace('/login');
           } else {
             setRouteResolved(true);
           }
         } else {
-          // Desktop Web: unauthenticated users can access /, /login, /signup, /about, /privacy, /terms, /contact
-          const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact'];
+          // Desktop Web: unauthenticated users can access /, /login, /signup, /about, /privacy, /terms, /contact, /download
+          const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download'];
           const isAllowed = allowedPaths.some(path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/')));
           if (!isAllowed) {
             router.replace('/login');
@@ -89,10 +89,10 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   // Mark route as resolved once pathname changes to the target destination
   useEffect(() => {
     if (isHydrated && !authLoading) {
-      if (!currentUser && isMobileOrApk && (pathname === '/login' || pathname === '/signup')) {
+      if (!currentUser && isMobileOrApk && (pathname === '/login' || pathname === '/signup' || pathname === '/download')) {
         setRouteResolved(true);
       } else if (!currentUser && !isMobileOrApk) {
-        const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact'];
+        const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download'];
         const isAllowed = allowedPaths.some(path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/')));
         if (isAllowed) setRouteResolved(true);
       } else if (currentUser && pathname !== '/' && pathname !== '/login' && pathname !== '/signup') {

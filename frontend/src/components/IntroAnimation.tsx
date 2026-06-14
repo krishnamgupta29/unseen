@@ -15,7 +15,7 @@ class Particle {
   acc: Vector2D = { x: 0, y: 0 };
   target: Vector2D = { x: 0, y: 0 };
 
-  closeEnoughTarget = 100;
+  closeEnoughTarget = 30;
   maxSpeed = 1.0;
   maxForce = 0.1;
   particleSize = 10;
@@ -89,7 +89,7 @@ class Particle {
     };
 
     ctx.fillStyle = `rgb(${currentColor.r}, ${currentColor.g}, ${currentColor.b})`;
-    ctx.fillRect(this.pos.x, this.pos.y, 2, 2);
+    ctx.fillRect(this.pos.x, this.pos.y, this.particleSize, this.particleSize);
   }
 
   kill(width: number, height: number) {
@@ -179,13 +179,14 @@ export default function IntroAnimation({ onComplete }: { onComplete: () => void 
     (word: string, canvas: HTMLCanvasElement) => {
       const offscreen = document.createElement('canvas');
       // Scale down the offscreen canvas to optimize pixel scanning on mobile/APK
-      const scale = isMobile ? 0.2 : 0.4;
+      const scale = 0.5;
       offscreen.width = Math.round(canvas.width * scale);
       offscreen.height = Math.round(canvas.height * scale);
       const offCtx = offscreen.getContext('2d')!;
 
-      // Font size scales with scaled offscreen canvas width
-      const fontSize = Math.round(offscreen.width * (isMobile ? 0.14 : 0.12));
+      // Calculate dynamic font size fitting within ~75% of screen width to prevent mobile clipping
+      const fontSizeScreen = Math.min(canvas.width * 0.15, 120);
+      const fontSize = Math.round(fontSizeScreen * scale);
       offCtx.fillStyle = 'white';
       offCtx.font = `900 ${fontSize}px Arial, sans-serif`;
       offCtx.textAlign = 'center';
@@ -194,7 +195,7 @@ export default function IntroAnimation({ onComplete }: { onComplete: () => void 
 
       const imageData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
       const pixels = imageData.data;
-      const pixelSteps = isMobile ? 2 : 1;
+      const pixelSteps = 1;
 
       // Pick a random purple from the palette
       const newColor =
@@ -236,10 +237,9 @@ export default function IntroAnimation({ onComplete }: { onComplete: () => void 
             );
             particle.pos.x = randomPos.x;
             particle.pos.y = randomPos.y;
-            // Native APK performance tuning for speeds/sizes
-            particle.maxSpeed = isMobile ? (Math.random() * 4 + 5) : (Math.random() * 6 + 8);
+            particle.maxSpeed = isMobile ? (Math.random() * 3 + 4) : (Math.random() * 5 + 6);
             particle.maxForce = particle.maxSpeed * 0.08;
-            particle.particleSize = isMobile ? (Math.random() * 3 + 3) : (Math.random() * 6 + 6);
+            particle.particleSize = isMobile ? (Math.random() * 1.5 + 1.25) : (Math.random() * 2.25 + 1.75);
             particle.colorBlendRate = Math.random() * 0.0275 + 0.0025;
             particles.push(particle);
           }

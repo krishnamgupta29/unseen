@@ -4,7 +4,7 @@
 
 UNSEEN is a modern anonymous social platform where users can freely express thoughts, emotions, confessions, and ideas without revealing their identity. Built with a dark cyber-inspired aesthetic, real-time interactions, encrypted messaging, and a privacy-first approach, UNSEEN creates a safe space for authentic conversations.
 
-🔗 Live Demo: https://unseen-world.vercel.app/feed
+🔗 Live Demo: https://unseen-world.vercel.app/
 
 ---
 
@@ -213,7 +213,7 @@ B.Tech CSE (AI/ML) Student
 GLA University, Mathura
 
 🌐 Live Platform:
-https://unseen-world.vercel.app/feed
+https://unseen-world.vercel.app/
 
 ---
 

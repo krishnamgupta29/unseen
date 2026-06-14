@@ -130,8 +130,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(null);
       setNotifications([]);
       disconnectSocket();
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/signup') && window.location.pathname !== '/') {
-        window.location.href = '/login';
+      if (typeof window !== 'undefined') {
+        const publicPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download', '/faq'];
+        const isPublic = publicPaths.some(
+          path => window.location.pathname === path || (path !== '/' && window.location.pathname.startsWith(path + '/'))
+        );
+        if (!isPublic) {
+          window.location.href = '/login';
+        }
       }
     };
     
@@ -144,18 +150,32 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       window.addEventListener('tokenRefreshed', handleTokenRefreshed);
     }
 
-    // Attempt to fetch the current user session
-    auth.getMe()
-      .then((user) => {
-        setCurrentUser({ ...user, id: user._id || user.id });
-      })
-      .catch(() => {
-        // If it fails (e.g., no token or expired), clear everything
-        setCurrentUser(null);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    const hasToken = typeof window !== 'undefined' && localStorage.getItem('accessToken');
+    if (!hasToken) {
+      setCurrentUser(null);
+      setIsLoading(false);
+    } else {
+      // Sync token to Android native interface on load
+      const win = window as any;
+      if (win.AndroidInterface && typeof win.AndroidInterface.saveToken === 'function') {
+        try {
+          win.AndroidInterface.saveToken(hasToken);
+        } catch (e) {}
+      }
+
+      // Attempt to fetch the current user session
+      auth.getMe()
+        .then((user) => {
+          setCurrentUser({ ...user, id: user._id || user.id });
+        })
+        .catch(() => {
+          // If it fails (e.g., no token or expired), clear everything
+          setCurrentUser(null);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
 
     return () => {
       if (typeof window !== 'undefined') {

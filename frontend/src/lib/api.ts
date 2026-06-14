@@ -42,6 +42,16 @@ export function setAccessToken(token: string, refreshTok?: string) {
   if (typeof window !== 'undefined') {
     localStorage.setItem('accessToken', token);
     window.dispatchEvent(new Event('tokenRefreshed'));
+    
+    // Sync token to Android native host interface if running in APK WebView shell
+    const win = window as any;
+    if (win.AndroidInterface && typeof win.AndroidInterface.saveToken === 'function') {
+      try {
+        win.AndroidInterface.saveToken(token);
+      } catch (e) {
+        console.error('Failed to save token to AndroidInterface', e);
+      }
+    }
   }
   if (refreshTok) {
     refreshToken = refreshTok;
@@ -55,6 +65,16 @@ export function clearAccessToken() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    
+    // Clear token in Android native host interface if running in APK WebView shell
+    const win = window as any;
+    if (win.AndroidInterface && typeof win.AndroidInterface.saveToken === 'function') {
+      try {
+        win.AndroidInterface.saveToken(null);
+      } catch (e) {
+        console.error('Failed to clear token in AndroidInterface', e);
+      }
+    }
   }
 }
 

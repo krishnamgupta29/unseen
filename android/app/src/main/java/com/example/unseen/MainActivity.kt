@@ -27,6 +27,10 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import android.content.Intent
+import android.webkit.JavascriptInterface
+import android.Manifest
+import android.content.pm.PackageManager
 
 class MainActivity : android.app.Activity() {
 
@@ -123,9 +127,29 @@ class MainActivity : android.app.Activity() {
         // 6. Select URL based on emulator vs physical device
         targetUrl = if (isEmulator()) devUrl else prodUrl
 
-        // 7. Load target URL or show offline screen if disconnected
+        // 7. Check if launched via deep link URL
+        var startUrl = targetUrl
+        intent?.data?.let { uri ->
+            startUrl = uri.toString()
+        }
+
+        // 8. Request notification permission if Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
+        // 9. Start background notification service on creation if authenticated
+        val sharedPref = getSharedPreferences("UnseenPrefs", Context.MODE_PRIVATE)
+        val token = sharedPref.getString("accessToken", null)
+        if (!token.isNullOrEmpty()) {
+            startNotificationService()
+        }
+
+        // 10. Load target URL or show offline screen if disconnected
         if (isNetworkAvailable()) {
-            webView.loadUrl(targetUrl)
+            webView.loadUrl(startUrl)
         } else {
             showOfflineScreen()
         }
@@ -162,14 +186,19 @@ class MainActivity : android.app.Activity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebViewSettings() {
+        webView.addJavascriptInterface(WebAppInterface(this), "AndroidInterface")
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            databaseEnabled = true
             loadWithOverviewMode = true
             useWideViewPort = true
             allowFileAccess = true
             allowContentAccess = true
-            cacheMode = WebSettings.LOAD_DEFAULT
+            // Use cache-first strategy so reopening the app loads cached pages instantly
+            // instead of waiting for a full network round-trip every time.
+            // The service worker + Next.js handles background content freshness.
+            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             
             // Native touch performance optimizations
@@ -393,5 +422,44 @@ class MainActivity : android.app.Activity() {
 
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.data?.let { uri ->
+            if (this::webView.isInitialized) {
+                webView.loadUrl(uri.toString())
+            }
+        }
+    }
+
+    fun startNotificationService() {
+        val intent = Intent(this, NotificationService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    fun stopNotificationService() {
+        val intent = Intent(this, NotificationService::class.java)
+        stopService(intent)
+    }
+}
+
+class WebAppInterface(private val activity: MainActivity) {
+    @JavascriptInterface
+    fun saveToken(token: String?) {
+        val sharedPref = activity.getSharedPreferences("UnseenPrefs", Context.MODE_PRIVATE)
+        sharedPref.edit().putString("accessToken", token).apply()
+        
+        activity.runOnUiThread {
+            if (!token.isNullOrEmpty()) {
+                activity.startNotificationService()
+            } else {
+                activity.stopNotificationService()
+            }
+        }
     }
 }

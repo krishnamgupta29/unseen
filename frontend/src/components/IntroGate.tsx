@@ -34,9 +34,16 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsHydrated(true);
 
-    // Check if intro has played in the current tab session
+    // Check if intro has played in the current tab session, or skip it in APK if already logged in
     const sessionPlayed = sessionStorage.getItem('introPlayedSession');
-    if (!sessionPlayed) {
+    const isApkUA = window.navigator.userAgent.includes('UnseenAndroidAPK') || window.navigator.userAgent.includes('UnseenAPK') || localStorage.getItem('isApk') === 'true';
+    const hasToken = localStorage.getItem('accessToken') || localStorage.getItem('refreshToken');
+
+    if (isApkUA && hasToken) {
+      // In APK, if already logged in, skip the intro completely for instant loading
+      setShowIntro(false);
+      sessionStorage.setItem('introPlayedSession', 'true');
+    } else if (!sessionPlayed) {
       setShowIntro(true);
     }
 
@@ -66,7 +73,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
           }
         } else {
           // Web (desktop + mobile browser): allow home page and public pages
-          const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download'];
+          const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download', '/faq'];
           const isAllowed = allowedPaths.some(
             path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/'))
           );
@@ -86,6 +93,23 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         }
       }
     }
+    // APK fast-path: if auth is still loading but we have a stored token,
+    // immediately resolve the route so the user doesn't stare at a black screen
+    // while the getMe() API call completes over the network.
+    if (isHydrated && authLoading && isApk) {
+      const hasToken = typeof window !== 'undefined' && 
+        (localStorage.getItem('accessToken') || localStorage.getItem('refreshToken'));
+      if (hasToken) {
+        // User was previously logged in — show content immediately
+        // If the token turns out invalid, the auth context will redirect to /login later
+        const authOrLandingPaths = ['/', '/login', '/signup'];
+        if (authOrLandingPaths.includes(pathname)) {
+          router.replace('/feed');
+        } else {
+          setRouteResolved(true);
+        }
+      }
+    }
   }, [isHydrated, authLoading, currentUser, pathname, router, isApk]);
 
   // Mark route as resolved once pathname is at the correct destination
@@ -94,7 +118,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
       if (!currentUser && isApk && (pathname === '/login' || pathname === '/signup' || pathname === '/download')) {
         setRouteResolved(true);
       } else if (!currentUser && !isApk) {
-        const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download'];
+        const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download', '/faq'];
         const isAllowed = allowedPaths.some(
           path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/'))
         );
@@ -124,8 +148,8 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         <IntroAnimation key="intro" onComplete={handleIntroComplete} />
       )}
       
-      {/* Hide content while intro plays or APK route hasn't resolved yet */}
-      <div className={shouldHideContent ? 'invisible h-0 overflow-hidden' : 'contents'}>
+      {/* Hide content while intro plays — use opacity-0 NOT invisible, so the fixed WebGL canvas keeps rendering */}
+      <div className={shouldHideContent ? 'opacity-0 h-0 overflow-hidden pointer-events-none' : 'contents'}>
         {children}
       </div>
     </>

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col bg-[#080016]">
+    <main className="flex min-h-screen flex-col">
       <motion.div
         key="landing"
         initial={{ opacity: 0 }}

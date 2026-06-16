@@ -9,6 +9,8 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [showIntro, setShowIntro] = useState(false);
   const [routeResolved, setRouteResolved] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateNotes, setUpdateNotes] = useState('');
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, isLoading: authLoading } = useAppContext();
@@ -38,6 +40,29 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
     const sessionPlayed = sessionStorage.getItem('introPlayedSession');
     if (!sessionPlayed) {
       setShowIntro(true);
+    }
+
+    // Version check for native Android APK
+    if (typeof window !== 'undefined') {
+      const ua = window.navigator.userAgent;
+      const isApkUA = ua.includes('UnseenAndroidAPK');
+      if (isApkUA) {
+        const match = ua.match(/UnseenAndroidAPK\/([0-9.]+)/);
+        const currentVersion = match ? match[1] : '1.0';
+
+        fetch('/app-version.json')
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.version && data.version !== currentVersion) {
+              const dismissed = sessionStorage.getItem('dismissedUpdate');
+              if (dismissed !== data.version) {
+                setUpdateNotes(data.releaseNotes || '');
+                setShowUpdateModal(true);
+              }
+            }
+          })
+          .catch(err => console.error('Failed to check app version', err));
+      }
     }
 
     // Register Service Worker for PWA support
@@ -145,6 +170,63 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
       <div className={shouldHideContent ? 'opacity-0 h-0 overflow-hidden pointer-events-none' : 'contents'}>
         {children}
       </div>
+
+      {showUpdateModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+          <div className="relative w-full max-w-sm glass bg-[#0a0216]/90 border border-unseen-800/60 rounded-3xl p-6 md:p-8 z-10 shadow-[0_0_50px_rgba(157,78,221,0.25)] text-center">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-unseen-500 via-purple-500 to-unseen-500" />
+            <div className="mx-auto w-12 h-12 bg-unseen-500/10 rounded-full flex items-center justify-center mb-4 border border-unseen-500/20">
+              <svg className="w-6 h-6 text-unseen-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-white font-poppins mb-2">App Update Available</h3>
+            <p className="text-sm text-gray-400 font-inter leading-relaxed mb-4">
+              A new version of the Unseen native app is available. Please download the update to get the latest features and stability improvements.
+            </p>
+            {updateNotes && (
+              <div className="text-xs text-gray-500 bg-[#120524]/60 border border-unseen-900/30 rounded-xl p-3 mb-6 text-left font-inter max-h-24 overflow-y-auto leading-relaxed">
+                <span className="font-semibold text-unseen-300 block mb-1">What's New:</span>
+                {updateNotes}
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowUpdateModal(false);
+                  fetch('/app-version.json')
+                    .then(res => res.json())
+                    .then(data => {
+                      window.location.href = data.url || '/unseen.apk';
+                    })
+                    .catch(() => {
+                      window.location.href = '/unseen.apk';
+                    });
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-unseen-600 to-purple-650 hover:shadow-[0_0_20px_rgba(123,44,191,0.3)] transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-white cursor-pointer"
+              >
+                Update Now
+              </button>
+              <button
+                onClick={() => {
+                  setShowUpdateModal(false);
+                  fetch('/app-version.json')
+                    .then(res => res.json())
+                    .then(data => {
+                      if (data && data.version) {
+                        sessionStorage.setItem('dismissedUpdate', data.version);
+                      }
+                    });
+                }}
+                className="px-4 py-3 bg-unseen-950/40 hover:bg-unseen-900/40 border border-unseen-800/40 transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-gray-400 cursor-pointer"
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -48,7 +48,8 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
       const isApkUA = ua.includes('UnseenAndroidAPK');
       if (isApkUA) {
         const match = ua.match(/UnseenAndroidAPK\/([0-9.]+)/);
-        const currentVersion = match ? match[1] : '1.0';
+        // If no version found in UA, it's a pre-versioning (old) APK → treat as '0.0' so it always triggers the update alert
+        const currentVersion = match ? match[1] : '0.0';
 
         fetch('/app-version.json')
           .then(res => res.json())

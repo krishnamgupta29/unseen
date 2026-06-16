@@ -172,7 +172,7 @@ export default function SignupPage() {
                   <RefreshCw className="w-4 h-4 animate-spin-hover" />
                 </button>
               </div>
-              <p className="text-[10px] text-unseen-400 mt-2 whitespace-normal break-words leading-relaxed">Generated automatically. Tap refresh to generate a new username.</p>
+              <p className="text-[10px] text-unseen-400 mt-2 whitespace-normal break-words leading-relaxed">Generated automatically. Tap refresh to generate a new username. Keep this anonymous.</p>
             </div>
 
             <div>
@@ -185,6 +185,9 @@ export default function SignupPage() {
                 className="w-full bg-unseen-950/40 border border-unseen-800/60 rounded-2xl px-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-unseen-400 focus:ring-1 focus:ring-unseen-400/50 shadow-inner transition-all duration-300 text-sm"
                 placeholder="How others see you (e.g. Dreamer)"
               />
+              <p className="text-[10px] text-amber-500/90 mt-2 whitespace-normal break-words leading-relaxed font-medium flex items-center gap-1">
+                <span>⚠️ Do not use your real name to maintain total anonymity.</span>
+              </p>
             </div>
 
             <div>

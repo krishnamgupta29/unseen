@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { auth, clearAccessToken, notifications as apiNotifications, users as apiUsers, messages as apiMessages } from '../lib/api';
 import { playNotificationSound } from '../lib/sound';
 import { getSocket, reconnectSocket, disconnectSocket } from '../lib/socketClient';
@@ -40,6 +40,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [showSessionModal, setShowSessionModal] = useState(false);
+  const isSessionTerminated = useRef(false);
 
   const fetchNotifications = async () => {
     try {
@@ -77,15 +79,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
         return mappedNotifs;
       });
-
-      // Also fetch unread messages count
-      try {
-        const convs = await apiMessages.getConversations();
-        const totalUnread = convs.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
-        setUnreadMessagesCount(totalUnread);
-      } catch (e) {
-        // Ignore expected errors
-      }
     } catch (e: any) {
       if (e?.message !== 'Token expired.' && e?.message !== 'Authentication required.' && e?.message !== 'Invalid token.' && e?.message !== 'Unauthorized') {
         console.error("Failed to fetch notifications", e);
@@ -102,23 +95,54 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const handleSessionTerminated = () => {
+    isSessionTerminated.current = true;
+    clearAccessToken();
+    setCurrentUser(null);
+    setNotifications([]);
+    disconnectSocket();
+    setShowSessionModal(true);
+  };
+
   useEffect(() => {
     if (currentUser) {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 10000); // 10s poll fallback
+      const interval = setInterval(fetchNotifications, 30000); // 30s poll (reduced from 10s)
+      
+      // Separate slower poll for unread message count (60s)
+      const fetchUnreadMessages = async () => {
+        try {
+          const convs = await apiMessages.getConversations();
+          const totalUnread = convs.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
+          setUnreadMessagesCount(totalUnread);
+        } catch (e) {
+          // Ignore expected errors
+        }
+      };
+      fetchUnreadMessages();
+      const msgInterval = setInterval(fetchUnreadMessages, 60000); // 60s poll
       
       const socket = getSocket();
       const handleNewNotification = () => {
         fetchNotifications();
       };
+      const handleNewMessage = () => {
+        fetchUnreadMessages();
+      };
+      const handleSessionTerminatedSocket = () => {
+        handleSessionTerminated();
+      };
       
-      socket.on('message:receive', handleNewNotification);
+      socket.on('message:receive', handleNewMessage);
       socket.on('notification:new', handleNewNotification);
+      socket.on('session:terminated', handleSessionTerminatedSocket);
       
       return () => {
         clearInterval(interval);
-        socket.off('message:receive', handleNewNotification);
+        clearInterval(msgInterval);
+        socket.off('message:receive', handleNewMessage);
         socket.off('notification:new', handleNewNotification);
+        socket.off('session:terminated', handleSessionTerminatedSocket);
       };
     } else {
       setNotifications([]);
@@ -127,6 +151,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleUnauthorized = () => {
+      if (isSessionTerminated.current) return;
       setCurrentUser(null);
       setNotifications([]);
       disconnectSocket();
@@ -147,6 +172,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     
     if (typeof window !== 'undefined') {
       window.addEventListener('unauthorized', handleUnauthorized);
+      window.addEventListener('sessionTerminated', handleSessionTerminated);
       window.addEventListener('tokenRefreshed', handleTokenRefreshed);
     }
 
@@ -180,6 +206,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('unauthorized', handleUnauthorized);
+        window.removeEventListener('sessionTerminated', handleSessionTerminated);
         window.removeEventListener('tokenRefreshed', handleTokenRefreshed);
       }
     };
@@ -210,6 +237,32 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AppContext.Provider value={{ currentUser, isLoading, login, logout, updateCurrentUser, notifications, markNotificationsRead, users, unreadMessagesCount, setUnreadMessagesCount }}>
       {children}
+      {showSessionModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+          <div className="relative w-full max-w-sm glass bg-[#0a0216]/90 border border-unseen-800/60 rounded-3xl p-6 md:p-8 z-10 shadow-[0_0_50px_rgba(157,78,221,0.25)] text-center">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-unseen-500 via-purple-500 to-unseen-500" />
+            <div className="mx-auto w-12 h-12 bg-unseen-500/10 rounded-full flex items-center justify-center mb-4 border border-unseen-500/20">
+              <svg className="w-6 h-6 text-unseen-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-white font-poppins mb-2">Session Ended</h3>
+            <p className="text-sm text-gray-400 font-inter leading-relaxed mb-6">
+              Your account was logged in on another device. For security, this session has been ended.
+            </p>
+            <button
+              onClick={() => {
+                setShowSessionModal(false);
+                window.location.href = '/login';
+              }}
+              className="w-full py-3 bg-gradient-to-r from-unseen-600 to-purple-650 hover:shadow-[0_0_20px_rgba(123,44,191,0.3)] transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-white cursor-pointer"
+            >
+              Acknowledge
+            </button>
+          </div>
+        </div>
+      )}
     </AppContext.Provider>
   );
 };

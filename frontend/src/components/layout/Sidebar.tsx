@@ -9,10 +9,10 @@ import { getSocket } from '@/lib/socketClient';
 import { useState, useEffect } from 'react';
 
 const NAV_ITEMS = [
-  { href: '/feed', icon: <Home className="w-6 h-6" />, label: 'Echoes' },
-  { href: '/explore', icon: <Compass className="w-6 h-6" />, label: 'Discover' },
+  { href: '/feed', icon: <Home className="w-6 h-6" />, label: 'Feed' },
+  { href: '/explore', icon: <Compass className="w-6 h-6" />, label: 'Search' },
   { href: '/messages', icon: <MessageSquare className="w-6 h-6" />, label: 'Messages' },
-  { href: '/profile', icon: <User className="w-6 h-6" />, label: 'Identity' },
+  { href: '/profile', icon: <User className="w-6 h-6" />, label: 'Profile' },
   { href: '/settings', icon: <Settings className="w-6 h-6" />, label: 'Settings' },
 ];
 
@@ -94,7 +94,7 @@ export default function Sidebar() {
           onClick={() => router.push('/feed')}
           className="mt-auto w-full py-3 rounded-xl bg-gradient-to-r from-unseen-600 to-unseen-800 text-white font-semibold hover:shadow-[0_0_20px_rgba(123,44,191,0.6)] transition-all"
         >
-          Post Thought
+          Create Post
         </button>
       </aside>
 

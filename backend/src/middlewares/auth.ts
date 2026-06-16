@@ -10,10 +10,23 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Throttle lastSeenAt writes: only update once per 60 seconds per user
+const lastSeenThrottle = new Map<string, number>();
+const LAST_SEEN_INTERVAL_MS = 60000; // 60 seconds
+
+function throttledLastSeenUpdate(userId: string) {
+  const now = Date.now();
+  const lastUpdated = lastSeenThrottle.get(userId) || 0;
+  if (now - lastUpdated > LAST_SEEN_INTERVAL_MS) {
+    lastSeenThrottle.set(userId, now);
+    User.findByIdAndUpdate(userId, { lastSeenAt: new Date() }).catch(() => {});
+  }
+}
+
 /**
  * Verify JWT Access Token from Authorization header or HTTP-only cookie
  */
-export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
   // Try cookie first (more secure), then Authorization header (for mobile clients)
   const tokenFromCookie = req.cookies?.accessToken;
   const tokenFromHeader = req.header('Authorization')?.split(' ')[1];
@@ -28,10 +41,25 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
       id: string;
       username: string;
       role: string;
+      sessionId?: string;
     };
+
+    // Verify active session on every protected request
+    const user = await User.findById(decoded.id).select('currentSessionId isSuspended isActive').lean();
+    if (!user || !user.isActive || user.isSuspended) {
+      return res.status(401).json({ message: 'Account not accessible.' });
+    }
+
+    if (!decoded.sessionId || decoded.sessionId !== user.currentSessionId) {
+      return res.status(401).json({
+        message: 'Your account was logged in on another device. For security, this session has been ended.',
+        code: 'SESSION_TERMINATED'
+      });
+    }
+
     req.user = decoded;
-    // Update lastSeenAt asynchronously to keep requests fast
-    User.findByIdAndUpdate(decoded.id, { lastSeenAt: new Date() }).catch(() => {});
+    // Update lastSeenAt throttled (max once per 60s per user)
+    throttledLastSeenUpdate(decoded.id);
     next();
   } catch (err: any) {
     if (err.name === 'TokenExpiredError') {
@@ -64,7 +92,7 @@ export const requireModerator = (req: AuthRequest, res: Response, next: NextFunc
 /**
  * Optional auth — attach user if token present, continue regardless
  */
-export const optionalAuth = (req: AuthRequest, _res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: AuthRequest, _res: Response, next: NextFunction) => {
   const tokenFromCookie = req.cookies?.accessToken;
   const tokenFromHeader = req.header('Authorization')?.split(' ')[1];
   const token = tokenFromCookie || tokenFromHeader;
@@ -75,13 +103,19 @@ export const optionalAuth = (req: AuthRequest, _res: Response, next: NextFunctio
         id: string;
         username: string;
         role: string;
+        sessionId?: string;
       };
-      req.user = decoded;
-      // Update lastSeenAt asynchronously
-      User.findByIdAndUpdate(decoded.id, { lastSeenAt: new Date() }).catch(() => {});
+      
+      const user = await User.findById(decoded.id).select('currentSessionId isSuspended isActive').lean();
+      if (user && user.isActive && !user.isSuspended && decoded.sessionId === user.currentSessionId) {
+        req.user = decoded;
+        // Update lastSeenAt throttled (max once per 60s per user)
+        throttledLastSeenUpdate(decoded.id);
+      }
     } catch {
       // Token invalid — continue as guest
     }
   }
   next();
 };
+

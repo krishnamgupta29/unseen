@@ -48,7 +48,7 @@ export default function AboutPage() {
             <Zap className="w-10 h-10 text-unseen-400 mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">Instant Global Reach</h3>
             <p className="text-gray-400 text-sm leading-relaxed">
-              When you whisper into the void, the void listens. Posts immediately reach the global feed, allowing you to find your tribe instantly.
+              When you post, everyone sees it instantly. Posts immediately reach the global feed, allowing you to find your community right away.
             </p>
           </div>
         </div>

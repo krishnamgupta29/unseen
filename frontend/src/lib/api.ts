@@ -83,38 +83,67 @@ export function getAccessToken(): string | null {
 }
 
 // ─── Base fetch wrapper ────────────────────────────────────────────────────
-async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+const API_TIMEOUT_MS = 10000; // 10 second timeout
+
+async function apiFetch<T>(endpoint: string, options: RequestInit = {}, _retryCount = 0): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  const res = await fetch(`${BASE}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  // Add timeout via AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-  if (res.status === 401) {
-    const data = await res.clone().json().catch(() => ({}));
-    if (data.code === 'TOKEN_EXPIRED') {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) return apiFetch<T>(endpoint, options);
+  try {
+    const res = await fetch(`${BASE}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (res.status === 401) {
+      const data = await res.clone().json().catch(() => ({}));
+      if (data.code === 'TOKEN_EXPIRED') {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) return apiFetch<T>(endpoint, options);
+      }
+      clearAccessToken();
+      if (typeof window !== 'undefined') {
+        if (data.code === 'SESSION_TERMINATED') {
+          window.dispatchEvent(new Event('sessionTerminated'));
+        } else {
+          window.dispatchEvent(new Event('unauthorized'));
+        }
+      }
+      throw new Error(data.message || 'Unauthorized');
     }
-    clearAccessToken();
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('unauthorized'));
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || `Request failed: ${res.status}`);
     }
-    throw new Error(data.message || 'Unauthorized');
-  }
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.message || `Request failed: ${res.status}`);
-  }
+    return res.json() as Promise<T>;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
 
-  return res.json() as Promise<T>;
+    // Retry once on network/timeout errors for GET requests only
+    const isGet = !options.method || options.method === 'GET';
+    const isRetryable = err.name === 'AbortError' || err.message === 'Failed to fetch' || err.name === 'TypeError';
+    if (isGet && isRetryable && _retryCount < 1) {
+      return apiFetch<T>(endpoint, options, _retryCount + 1);
+    }
+
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection.');
+    }
+    throw err;
+  }
 }
 
 // ─── Refresh access token ──────────────────────────────────────────────────

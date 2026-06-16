@@ -13,7 +13,7 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
     const myId = req.user!.id;
     const otherId = String(req.params.userId);
     const messages = await Message.find({ conversationId: getConversationId(myId, otherId), isDeleted: false })
-      .sort({ createdAt: 1 }).limit(100).lean();
+      .sort({ createdAt: 1 }).limit(50).lean();
     const decrypted = messages.map(m => ({
       ...m,
       content: (() => { try { return decrypt(m.encryptedContent, m.iv); } catch { return '[Encrypted]'; } })(),
@@ -83,6 +83,8 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
           unread: { $sum: { $cond: [{ $and: [{ $eq: ['$receiver', myId] }, { $eq: ['$isRead', false] }] }, 1, 0] } }
         }
       },
+      { $sort: { 'lastMessage.createdAt': -1 } },
+      { $limit: 50 },
       { $lookup: {
           from: 'users',
           localField: 'lastMessage.sender',
@@ -97,10 +99,8 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
           as: 'receiverInfo'
         }
       },
-      { $unwind: '$senderInfo' },
-      { $unwind: '$receiverInfo' },
-      { $sort: { 'lastMessage.createdAt': -1 } },
-      { $limit: 50 },
+      { $unwind: { path: '$senderInfo', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$receiverInfo', preserveNullAndEmptyArrays: true } },
     ]);
     
     const decrypted = latest.map(c => {
@@ -110,6 +110,9 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
       } catch (e) {}
       
       const otherUser = String(c.lastMessage.sender) === String(myId) ? c.receiverInfo : c.senderInfo;
+      
+      // Skip conversations where the other user was deleted
+      if (!otherUser) return null;
       
       return {
         conversationId: c._id,
@@ -129,7 +132,7 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
       };
     });
     
-    res.json(decrypted);
+    res.json(decrypted.filter(Boolean));
   } catch (e: any) { res.status(500).json({ message: 'Server error', error: e.message }); }
 };
 

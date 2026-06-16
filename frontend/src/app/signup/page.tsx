@@ -128,7 +128,7 @@ export default function SignupPage() {
                 UNSEEN
               </h1>
             </Link>
-            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Claim Identity</h3>
+            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Create Account</h3>
             <p className="text-gray-400 text-sm font-inter">Join the community securely.</p>
           </div>
 
@@ -145,7 +145,7 @@ export default function SignupPage() {
                   !
                 </span>
                 <div className="flex-1 leading-relaxed">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-red-400 block mb-0.5">Identity Alert</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-red-400 block mb-0.5">Error</span>
                   <p className="font-inter text-xs">{error}</p>
                 </div>
               </motion.div>
@@ -153,7 +153,7 @@ export default function SignupPage() {
             
             {/* Username */}
             <div>
-              <label className="block text-xs font-semibold text-unseen-300 uppercase tracking-widest mb-2 font-inter">Your Permanent Identity (Username)</label>
+              <label className="block text-xs font-semibold text-unseen-300 uppercase tracking-widest mb-2 font-inter">Username</label>
               <div className="flex items-center bg-unseen-950/60 border border-unseen-800/80 rounded-2xl px-4 py-3 cursor-default transition-all duration-300 select-none shadow-inner">
                 <input
                   type="text"
@@ -167,12 +167,12 @@ export default function SignupPage() {
                   type="button"
                   onClick={() => setUsername(generateUsername())}
                   className="text-gray-400 hover:text-unseen-300 transition-colors ml-3 cursor-pointer shrink-0"
-                  title="Generate random identity"
+                  title="Generate random username"
                 >
                   <RefreshCw className="w-4 h-4 animate-spin-hover" />
                 </button>
               </div>
-              <p className="text-[10px] text-unseen-400 mt-2 whitespace-normal break-words leading-relaxed">Generated automatically. Tap refresh to roll a new identity.</p>
+              <p className="text-[10px] text-unseen-400 mt-2 whitespace-normal break-words leading-relaxed">Generated automatically. Tap refresh to generate a new username.</p>
             </div>
 
             <div>
@@ -219,13 +219,13 @@ export default function SignupPage() {
               disabled={loading}
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-unseen-600 via-unseen-700 to-unseen-800 text-white font-semibold shadow-[0_0_20px_rgba(123,44,191,0.3)] hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 mt-4 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider text-xs"
             >
-              {loading ? 'Creating...' : 'Create Identity'}
+              {loading ? 'Creating...' : 'Create Account'}
             </button>
           </form>
 
           <div className="mt-8 text-center">
             <p className="text-gray-400 text-sm font-inter">
-              Already have an identity?{' '}
+              Already have an account?{' '}
               <Link href="/login" className="text-unseen-300 hover:text-unseen-200 transition-colors font-medium">
                 Login
               </Link>

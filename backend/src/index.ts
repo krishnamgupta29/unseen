@@ -146,13 +146,22 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 // ── Socket.io ─────────────────────────────────────────────────────────────────
 initSocket(server);
 
+// ── MongoDB connection tuning ────────────────────────────────────────────────
+mongoose.set('bufferCommands', false); // Fail fast instead of queuing when disconnected
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = Number(process.env.PORT) || 5001;
 const MONGO_URI = process.env.MONGO_URI || '';
 
 if (MONGO_URI) {
   mongoose
-    .connect(MONGO_URI)
+    .connect(MONGO_URI, {
+      maxPoolSize: 10,          // Max concurrent connections to Atlas
+      minPoolSize: 2,           // Keep at least 2 alive for fast queries
+      serverSelectionTimeoutMS: 5000, // Fail fast if DB unreachable
+      socketTimeoutMS: 45000,   // Don't hang forever on slow queries
+      connectTimeoutMS: 10000,  // Connection establishment timeout
+    })
     .then(() => {
       console.log('[DB] MongoDB connected');
       server.listen(PORT, () => console.log(`[Server] Running on port ${PORT}`));

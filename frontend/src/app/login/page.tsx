@@ -114,7 +114,7 @@ export default function LoginPage() {
                 UNSEEN
               </h1>
             </Link>
-            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Access Identity</h3>
+            <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Log In</h3>
             <p className="text-gray-400 text-sm font-inter">Enter your credentials to continue.</p>
           </div>
 
@@ -131,7 +131,7 @@ export default function LoginPage() {
                   !
                 </span>
                 <div className="flex-1 leading-relaxed">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-red-400 block mb-0.5">Identity Alert</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-red-400 block mb-0.5">Error</span>
                   <p className="font-inter text-xs">{error}</p>
                 </div>
               </motion.div>
@@ -144,7 +144,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-unseen-950/40 border border-unseen-800/60 rounded-2xl px-4 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-unseen-400 focus:ring-1 focus:ring-unseen-400/50 shadow-inner transition-all duration-300 font-mono text-sm"
-                placeholder="Enter your identity"
+                placeholder="Enter your username"
               />
             </div>
             <div>
@@ -170,14 +170,14 @@ export default function LoginPage() {
               disabled={loading} 
               className="w-full py-4 rounded-2xl bg-gradient-to-r from-unseen-600 via-unseen-700 to-unseen-800 text-white font-semibold shadow-[0_0_20px_rgba(123,44,191,0.3)] hover:shadow-[0_0_30px_rgba(123,44,191,0.6)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-300 mt-4 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider text-xs"
             >
-              {loading ? 'Authenticating...' : 'Enter the Void'}
+              {loading ? 'Logging in...' : 'Log In'}
             </button>
           </form>
           <div className="mt-8 text-center">
             <p className="text-gray-400 text-sm font-inter">
-              Don't have an identity yet?{' '}
+              Don't have an account yet?{' '}
               <Link href="/signup" className="text-unseen-300 hover:text-unseen-200 transition-colors font-medium">
-                Claim one
+                Sign up
               </Link>
             </p>
           </div>

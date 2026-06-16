@@ -68,7 +68,7 @@ export default function SettingsPage() {
             </button>
             <button 
               onClick={async () => {
-                if (window.confirm('Are you sure you want to permanently delete your identity? This cannot be undone.')) {
+                if (window.confirm('Are you sure you want to permanently delete your account? This cannot be undone.')) {
                   try {
                     await users.deleteProfile();
                   } catch (e) {
@@ -80,7 +80,7 @@ export default function SettingsPage() {
               className="w-full flex items-center p-4 rounded-xl hover:bg-red-500/20 bg-red-500/5 text-red-500 transition-colors text-left mt-2"
             >
               <Trash2 className="w-5 h-5 mr-4" />
-              <span className="font-semibold">Delete Identity</span>
+              <span className="font-semibold">Delete Account</span>
             </button>
           </div>
         </div>

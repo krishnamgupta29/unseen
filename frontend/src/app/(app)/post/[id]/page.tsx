@@ -31,7 +31,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> |
         setPost(data);
       })
       .catch((err) => {
-        setError(err.message || 'Failed to fetch whisper.');
+        setError(err.message || 'Failed to load post.');
       })
       .finally(() => {
         setLoading(false);
@@ -40,7 +40,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> |
 
   return (
     <div className="w-full relative min-h-screen pb-24">
-      <Header title="Whisper" />
+      <Header title="Post" />
       
       <div className="p-4 border-b border-unseen-800/30 flex items-center space-x-2">
         <button 
@@ -60,7 +60,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> |
         <div className="p-12 text-center text-gray-500">
           <p className="text-sm font-semibold text-gray-200">{error}</p>
           <p className="text-xs mt-1.5 max-w-xs mx-auto text-gray-500 leading-relaxed">
-            This whisper might have faded back into the void or has been deleted.
+            This post may have been deleted.
           </p>
         </div>
       ) : post ? (

@@ -133,7 +133,7 @@ export default function EmojiPicker({ onSelectEmoji, align = 'left', className =
             {/* Footer */}
             <div className="mt-2 pt-2 border-t border-unseen-800/20">
               <p className="text-[9px] uppercase tracking-widest font-mono text-gray-600 text-center">
-                Whisper Emojis • {EMOJI_CATEGORIES[activeCategory].emojis.length} available
+                Emojis • {EMOJI_CATEGORIES[activeCategory].emojis.length} available
               </p>
             </div>
           </motion.div>

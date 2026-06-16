@@ -28,6 +28,7 @@ export interface IUser extends Document {
   resetPasswordOtpExpires?: Date;
   lastOtpSentAt?: Date;
   failedOtpAttempts?: number;
+  currentSessionId?: string | null;
   // Timestamps
   lastSeenAt: Date;
   createdAt: Date;
@@ -64,6 +65,7 @@ const UserSchema: Schema = new Schema(
     // Feed personalization
     interestTags: [{ type: String }],
     lastSeenAt: { type: Date, default: Date.now },
+    currentSessionId: { type: String, default: null },
   },
   { timestamps: true }
 );

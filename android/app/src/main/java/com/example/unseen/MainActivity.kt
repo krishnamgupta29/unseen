@@ -195,10 +195,9 @@ class MainActivity : android.app.Activity() {
             useWideViewPort = true
             allowFileAccess = true
             allowContentAccess = true
-            // Use cache-first strategy so reopening the app loads cached pages instantly
-            // instead of waiting for a full network round-trip every time.
-            // The service worker + Next.js handles background content freshness.
-            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+            // Use standard cache strategy that respects HTTP cache headers (ETag, Cache-Control)
+            // LOAD_CACHE_ELSE_NETWORK would serve stale content and prevent feed from refreshing
+            cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             
             // Native touch performance optimizations

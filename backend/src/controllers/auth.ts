@@ -2,12 +2,14 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { body } from 'express-validator';
+import mongoose from 'mongoose';
 import https from 'https';
 import User from '../models/User';
 import RefreshToken from '../models/RefreshToken';
 import AbuseLog from '../models/AbuseLog';
 import { generateSecureToken, hashOneWay } from '../services/encryption';
 import { AuthRequest } from '../middlewares/auth';
+import { invalidateUserSessions } from '../services/socketManager';
 
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
@@ -128,9 +130,9 @@ function randomAvatarColor(): string {
   return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 }
 
-function issueTokens(userId: string, username: string, role: string) {
+function issueTokens(userId: string, username: string, role: string, sessionId?: string) {
   const accessToken = jwt.sign(
-    { id: userId, username, role },
+    { id: userId, username, role, sessionId },
     process.env.JWT_SECRET || 'secret',
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
@@ -175,12 +177,14 @@ export const signup = async (req: Request, res: Response) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const sessionId = new mongoose.Types.ObjectId().toString();
     const newUser = new User({
       username: finalUsername,
       displayName: displayName || finalUsername,
       email: email || undefined,
       passwordHash,
       avatarColor: randomAvatarColor(),
+      currentSessionId: sessionId,
     });
 
     await newUser.save();
@@ -188,7 +192,8 @@ export const signup = async (req: Request, res: Response) => {
     const { accessToken, refreshToken } = issueTokens(
       newUser._id.toString(),
       newUser.username,
-      newUser.role
+      newUser.role,
+      sessionId
     );
 
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
@@ -283,16 +288,24 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Generate new unique session ID
+    const sessionId = new mongoose.Types.ObjectId().toString();
+
+    // Revoke all existing refresh tokens for this user (logs out other devices)
+    await RefreshToken.deleteMany({ userId: user._id });
+
     // Reset on success
     user.loginAttempts = 0;
     user.lockUntil = undefined;
     user.lastSeenAt = new Date();
+    user.currentSessionId = sessionId;
     await user.save();
 
     const { accessToken, refreshToken } = issueTokens(
       user._id.toString(),
       user.username,
-      user.role
+      user.role,
+      sessionId
     );
 
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
@@ -303,6 +316,9 @@ export const login = async (req: Request, res: Response) => {
       ipAddress: ipHash,
       expiresAt,
     });
+
+    // Terminate other active sockets in real-time
+    invalidateUserSessions(user._id.toString(), sessionId);
 
     setRefreshCookie(res, refreshToken);
 
@@ -345,10 +361,18 @@ export const refresh = async (req: Request, res: Response) => {
 
     // Rotate refresh token
     await stored.deleteOne();
+
+    const sessionId = user.currentSessionId || new mongoose.Types.ObjectId().toString();
+    if (!user.currentSessionId) {
+      user.currentSessionId = sessionId;
+      await user.save();
+    }
+
     const { accessToken, refreshToken: newRefreshToken } = issueTokens(
       user._id.toString(),
       user.username,
-      user.role
+      user.role,
+      sessionId
     );
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
     await RefreshToken.create({

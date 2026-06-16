@@ -90,7 +90,7 @@ function MessagesContent() {
       <div className={`w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col h-full border-r border-unseen-800/30 bg-[#080016] pb-20 md:pb-0 ${
         activeChatUserId ? 'hidden md:flex' : 'flex'
       }`}>
-        <Header title="Secure Inbox" />
+        <Header title="Messages" />
         
         {/* Conversation Search Bar */}
         <div className="p-4 border-b border-unseen-800/30 bg-[#080016]/50">
@@ -103,7 +103,7 @@ function MessagesContent() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-unseen-900/50 border border-unseen-800 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-unseen-500 transition-colors"
-              placeholder="Search secure threads..."
+              placeholder="Search conversations..."
             />
           </div>
         </div>
@@ -113,16 +113,16 @@ function MessagesContent() {
           {loadingConversations ? (
             <div className="p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[300px]">
               <Loader2 className="w-8 h-8 animate-spin text-unseen-400 mb-3" />
-              <p className="text-sm font-mono text-unseen-300">Decrypting secure protocols...</p>
+              <p className="text-sm font-mono text-unseen-300">Loading conversations...</p>
             </div>
           ) : filteredConversations.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500 h-full min-h-[400px]">
               <div className="w-16 h-16 rounded-full bg-unseen-900/40 flex items-center justify-center mb-4 border border-unseen-800/30">
                 <MessageSquare className="w-7 h-7 text-unseen-400 opacity-60" />
               </div>
-              <p className="text-lg font-semibold text-gray-200">No active threads</p>
+              <p className="text-lg font-semibold text-gray-200">No conversations yet</p>
               <p className="text-xs mt-1.5 max-w-xs text-gray-400 leading-relaxed">
-                Go to the Feed, click on any shadow's profile name, and tap the Message icon to initiate an untraceable, end-to-end encrypted conversation.
+                Go to the Feed, click on any user's profile, and tap the Message icon to start a conversation.
               </p>
             </div>
           ) : (
@@ -160,7 +160,7 @@ function MessagesContent() {
                       </div>
                       <p className={`text-xs truncate ${c.unreadCount > 0 ? 'text-unseen-200 font-semibold' : 'text-gray-400'}`}>
                         {c.lastMessage.sender === currentUser.id ? 'You: ' : ''}
-                        {c.lastMessage.content.match(/(\/post\/|\[POST_SHARE:)[a-f\d]{24}/i) ? 'Shared a whisper' : c.lastMessage.content}
+                        {c.lastMessage.content.match(/(\/post\/|\[POST_SHARE:)[a-f\d]{24}/i) ? 'Shared a post' : c.lastMessage.content}
                       </p>
                     </div>
                   </div>
@@ -182,9 +182,9 @@ function MessagesContent() {
             <div className="w-16 h-16 rounded-full bg-unseen-900/30 flex items-center justify-center mb-4 border border-unseen-800/40 shadow-[0_0_20px_rgba(157,78,221,0.05)]">
               <Shield className="w-8 h-8 text-unseen-500 opacity-60" />
             </div>
-            <h3 className="text-white font-bold text-base mb-1.5 font-poppins">Secure inbox selected</h3>
+            <h3 className="text-white font-bold text-base mb-1.5 font-poppins">Select a conversation</h3>
             <p className="text-xs text-gray-400 leading-relaxed font-inter">
-              Select a thread from the list on the left to view messages. Your chat content is always symmetric AES encrypted.
+              Select a conversation from the list to view messages.
             </p>
           </div>
         )}

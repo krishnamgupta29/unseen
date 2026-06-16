@@ -17,5 +17,8 @@ const FollowerSchema: Schema = new Schema(
 
 // Prevent duplicate follows
 FollowerSchema.index({ follower: 1, following: 1 }, { unique: true });
+// Single-field indexes for fast countDocuments lookups on profile pages
+FollowerSchema.index({ following: 1 });
+FollowerSchema.index({ follower: 1 });
 
 export default mongoose.model<IFollower>('Follower', FollowerSchema);

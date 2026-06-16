@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IComment extends Document {
   author: mongoose.Types.ObjectId;
   post: mongoose.Types.ObjectId;
-  parentComment: mongoose.Types.ObjectId;
+  parentComment: mongoose.Types.ObjectId | null;
   content: string;
   likesCount: number;
   isDeleted: boolean;
@@ -22,5 +22,10 @@ const CommentSchema: Schema = new Schema(
   },
   { timestamps: true }
 );
+
+// Indexes for performance and quick threaded lookups
+CommentSchema.index({ post: 1, isDeleted: 1, createdAt: -1 });
+CommentSchema.index({ parentComment: 1 });
+CommentSchema.index({ author: 1 });
 
 export default mongoose.model<IComment>('Comment', CommentSchema);

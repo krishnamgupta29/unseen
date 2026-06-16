@@ -43,7 +43,7 @@ export default function SecurityPage() {
 
   return (
     <div className="w-full min-h-screen pb-20 bg-[#080016] text-gray-200">
-      <Header title="Security Controls" showBack />
+      <Header title="Change Password" showBack />
 
       <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-6">
         {error && (
@@ -66,7 +66,7 @@ export default function SecurityPage() {
             </div>
             <div>
               <h2 className="text-base font-bold text-white uppercase tracking-wider">Change Password</h2>
-              <p className="text-[10px] text-gray-500 font-mono">Option 01: Secure Key Rotation</p>
+              <p className="text-[10px] text-gray-500 font-mono">Change Password Option</p>
             </div>
           </div>
 
@@ -99,7 +99,7 @@ export default function SecurityPage() {
               className="w-full py-4 mt-2 bg-gradient-to-r from-unseen-600 to-unseen-850 hover:from-unseen-500 hover:to-unseen-750 transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-white shadow-lg disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              Rotate Password Key
+              Change Password
             </button>
           </form>
         </div>

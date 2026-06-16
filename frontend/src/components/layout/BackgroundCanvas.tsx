@@ -9,7 +9,7 @@ const QUOTES = [
   "real thoughts. zero judgment.",
   "every soul has secrets.",
   "speak freely. disappear completely.",
-  "the void listens. always.",
+  "your thoughts, amplified.",
   "your voice, unmasked.",
   "be no one. say everything.",
 ];

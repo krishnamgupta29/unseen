@@ -9,6 +9,130 @@ import { feed, users, comments as commentsApi, messages as messagesApi } from '@
 import { getSocket } from '@/lib/socketClient';
 import { useAppStore } from '@/lib/store';
 
+function buildCommentTree(flatComments: any[]): any[] {
+  const map: Record<string, any> = {};
+  const roots: any[] = [];
+
+  flatComments.forEach(c => {
+    map[c._id.toString()] = { ...c, replies: [] };
+  });
+
+  flatComments.forEach(c => {
+    const mapped = map[c._id.toString()];
+    if (c.parentComment) {
+      const parentId = typeof c.parentComment === 'object' && c.parentComment !== null 
+        ? c.parentComment._id?.toString() 
+        : c.parentComment.toString();
+      const parent = map[parentId];
+      if (parent) {
+        parent.replies.push(mapped);
+      }
+    } else {
+      roots.push(mapped);
+    }
+  });
+
+  roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const sortReplies = (node: any) => {
+    node.replies.sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    node.replies.forEach(sortReplies);
+  };
+  roots.forEach(sortReplies);
+
+  return roots;
+}
+
+const CommentItem = ({
+  comment,
+  onReply,
+  onDelete,
+  onLike,
+  currentUser,
+  formatTimeAgo,
+  depth = 0
+}: {
+  comment: any;
+  onReply: (c: any) => void;
+  onDelete: (id: string) => void;
+  onLike: (id: string) => void;
+  currentUser: any;
+  formatTimeAgo: (dateString: string) => string;
+  depth?: number;
+}) => {
+  return (
+    <div className="flex flex-col space-y-2 mt-2">
+      <div className="flex items-start space-x-3 group">
+        <div className="relative flex-shrink-0 mt-1">
+          <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${comment.author.avatarColor} blur-sm opacity-60`} />
+          <div className={`relative w-6 h-6 rounded-full bg-gradient-to-br ${comment.author.avatarColor || 'from-gray-500 to-gray-700'} border-[1.5px] border-[#080016] flex items-center justify-center shadow-inner`}>
+            <span className="text-white text-[9px] font-bold font-poppins uppercase select-none">
+              {comment.author.displayName?.charAt(0) || comment.author.username?.charAt(0) || '?'}
+            </span>
+          </div>
+        </div>
+        <div className="flex-1 bg-unseen-900/30 p-3 rounded-2xl rounded-tl-sm border border-unseen-800/30">
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="font-semibold text-gray-200 text-xs">{comment.author.displayName}</span>
+            <span className="text-[10px] text-gray-500">· {formatTimeAgo(comment.createdAt)}</span>
+          </div>
+          <p className="text-gray-300 text-sm font-inter leading-relaxed">{comment.content}</p>
+          
+          <div className="flex items-center space-x-4 mt-2">
+            <button 
+              onClick={() => onLike(comment._id)}
+              className={`flex items-center space-x-1 transition-colors ${comment.isLiked ? 'text-unseen-400' : 'text-gray-500 hover:text-unseen-300'}`}
+            >
+              <motion.div
+                animate={comment.isLiked ? { scale: [1, 1.35, 0.9, 1.05, 1] } : { scale: 1 }}
+                transition={{ duration: 0.4 }}
+              >
+                <Heart className={`w-3 h-3 ${comment.isLiked ? 'fill-current' : ''}`} />
+              </motion.div>
+              <span className="text-[10px] font-medium">{comment.likesCount || 0}</span>
+            </button>
+            <button 
+              onClick={() => onReply(comment)}
+              className="text-[10px] font-medium text-gray-500 hover:text-unseen-300 transition-colors"
+            >
+              Reply
+            </button>
+            {currentUser?.id === comment.author?._id && (
+              <button 
+                onClick={() => onDelete(comment._id)}
+                className="text-[10px] font-medium text-red-500/80 hover:text-red-400 transition-colors flex items-center gap-0.5"
+              >
+                <Trash2 className="w-3 h-3" /> Delete
+              </button>
+            )}
+            {comment.replies && comment.replies.length > 0 && (
+              <span className="text-[10px] text-unseen-500/80 font-medium font-mono">
+                ({comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'})
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="pl-6 border-l border-unseen-800/20 space-y-3 mt-1">
+          {comment.replies.map((reply: any) => (
+            <CommentItem 
+              key={reply._id} 
+              comment={reply} 
+              depth={depth + 1} 
+              onReply={onReply} 
+              onDelete={onDelete} 
+              onLike={onLike} 
+              currentUser={currentUser}
+              formatTimeAgo={formatTimeAgo}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function PostCardComponent({ post: initialPost }: { post: any }) {
   const { currentUser } = useAppContext();
   const router = useRouter();
@@ -75,19 +199,33 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     const handleCommentCreated = (data: { postId: string; comment: any }) => {
       if (data.postId === post._id) {
         setComments(prev => {
-          if (prev.some(c => c._id === data.comment._id || (c.isOptimistic && c.content === data.comment.content && c.author._id === data.comment.author._id))) {
+          const exists = prev.some(c => c._id === data.comment._id || (c.isOptimistic && c.content === data.comment.content && c.author._id === data.comment.author._id));
+          if (exists) {
             return prev.map(c => (c.isOptimistic && c.content === data.comment.content && c.author._id === data.comment.author._id) ? data.comment : c);
+          } else {
+            useAppStore.getState().updatePostLocal(post._id, { commentsCount: post.commentsCount + 1 });
+            return [...prev, data.comment];
           }
-          return [data.comment, ...prev];
         });
-        useAppStore.getState().updatePostLocal(post._id, { commentsCount: post.commentsCount + 1 });
       }
     };
 
-    const handleCommentDeleted = (data: { postId: string; commentId: string }) => {
+    const handleCommentDeleted = (data: { postId: string; commentId: string; deletedCount?: number }) => {
       if (data.postId === post._id) {
-        setComments(prev => prev.filter(c => c._id !== data.commentId));
-        useAppStore.getState().updatePostLocal(post._id, { commentsCount: Math.max(0, post.commentsCount - 1) });
+        setComments(prev => {
+          const getDescendantIds = (id: string, list: any[]): string[] => {
+            const children = list.filter(c => c.parentComment?.toString() === id);
+            let ids = children.map(c => c._id.toString());
+            for (const child of children) {
+              ids = [...ids, ...getDescendantIds(child._id.toString(), list)];
+            }
+            return ids;
+          };
+          const descendants = getDescendantIds(data.commentId, prev);
+          const allDeletedIds = [data.commentId, ...descendants];
+          return prev.filter(c => !allDeletedIds.includes(c._id.toString()));
+        });
+        useAppStore.getState().updatePostLocal(post._id, { commentsCount: Math.max(0, post.commentsCount - (data.deletedCount || 1)) });
       }
     };
 
@@ -155,7 +293,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     setReporting(true);
     try {
       await users.report(authorId, { reason: reportReason.trim(), contentId: post._id, contentType: 'post' });
-      setReportStatus("Whisper has been reported to the moderation systems.");
+      setReportStatus("Post has been reported to moderation.");
       setTimeout(() => setReportStatus(null), 4000);
       setShowReportModal(false);
       setReportReason('');
@@ -220,9 +358,21 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
   };
 
   const handleDeleteComment = async (commentId: string) => {
+    const getDescendantIds = (id: string, list: any[]): string[] => {
+      const children = list.filter(c => c.parentComment?.toString() === id);
+      let ids = children.map(c => c._id.toString());
+      for (const child of children) {
+        ids = [...ids, ...getDescendantIds(child._id.toString(), list)];
+      }
+      return ids;
+    };
+    
+    const descendantIds = getDescendantIds(commentId, comments);
+    const allDeletedIds = [commentId, ...descendantIds];
     const originalComments = [...comments];
-    setComments(prev => prev.filter(c => c._id !== commentId));
-    useAppStore.getState().updatePostLocal(post._id, { commentsCount: Math.max(0, post.commentsCount - 1) });
+    
+    setComments(prev => prev.filter(c => !allDeletedIds.includes(c._id.toString())));
+    useAppStore.getState().updatePostLocal(post._id, { commentsCount: Math.max(0, post.commentsCount - allDeletedIds.length) });
     
     try {
       await commentsApi.delete(commentId);
@@ -416,7 +566,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                 className="absolute right-[-40px] sm:right-auto sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-3 w-[260px] sm:w-72 glass bg-[#0a0216]/90 backdrop-blur-2xl rounded-2xl shadow-[0_0_30px_rgba(123,44,191,0.15)] z-20 overflow-hidden border border-unseen-800/60"
               >
                 <div className="px-4 py-3 border-b border-unseen-800/50 flex justify-between items-center bg-unseen-900/20">
-                  <span className="text-[10px] sm:text-xs font-bold text-gray-200 uppercase tracking-widest font-poppins">Share Whisper</span>
+                  <span className="text-[10px] sm:text-xs font-bold text-gray-200 uppercase tracking-widest font-poppins">Share Post</span>
                 </div>
                 
                 <div className="p-2 sm:p-3">
@@ -526,64 +676,24 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
               </div>
               <div className="space-y-4 pl-4 border-l border-unseen-800/50 mt-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                 {!commentsLoaded ? (
-                  <p className="text-xs text-gray-500 italic flex items-center"><Loader2 className="w-3 h-3 animate-spin mr-2" /> Loading whispers...</p>
+                  <p className="text-xs text-gray-500 italic flex items-center"><Loader2 className="w-3 h-3 animate-spin mr-2" /> Loading comments...</p>
                 ) : comments.length === 0 ? (
-                  <p className="text-xs text-gray-500 italic">No whispers recorded. Be the first to break the silence.</p>
+                  <p className="text-xs text-gray-500 italic">No comments yet. Be the first to comment.</p>
                 ) : (
-                  comments.map(c => (
-                    <div key={c._id} className="flex items-start space-x-3 group">
-                      <div className="relative flex-shrink-0 mt-1">
-                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${c.author.avatarColor} blur-sm opacity-60`} />
-                        <div className={`relative w-6 h-6 rounded-full bg-gradient-to-br ${c.author.avatarColor || 'from-gray-500 to-gray-700'} border-[1.5px] border-[#080016] flex items-center justify-center shadow-inner`}>
-                          <span className="text-white text-[9px] font-bold font-poppins uppercase select-none">
-                            {c.author.displayName?.charAt(0) || c.author.username?.charAt(0) || '?'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex-1 bg-unseen-900/30 p-3 rounded-2xl rounded-tl-sm border border-unseen-800/30">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="font-semibold text-gray-200 text-xs">{c.author.displayName}</span>
-                          <span className="text-[10px] text-gray-500">· {formatTimeAgo(c.createdAt)}</span>
-                        </div>
-                        <p className="text-gray-300 text-sm font-inter leading-relaxed">{c.content}</p>
-                        
-                        <div className="flex items-center space-x-4 mt-2">
-                          <button 
-                            onClick={() => toggleCommentLike(c._id)}
-                            className={`flex items-center space-x-1 transition-colors ${c.isLiked ? 'text-unseen-400' : 'text-gray-500 hover:text-unseen-300'}`}
-                          >
-                            <motion.div
-                              animate={c.isLiked ? { scale: [1, 1.35, 0.9, 1.05, 1] } : { scale: 1 }}
-                              transition={{ duration: 0.4 }}
-                            >
-                              <Heart className={`w-3 h-3 ${c.isLiked ? 'fill-current' : ''}`} />
-                            </motion.div>
-                            <span className="text-[10px] font-medium">{c.likesCount || 'Like'}</span>
-                          </button>
-                          <button 
-                            onClick={() => { 
-                              setReplyingTo(c); 
-                              setCommentText(`@${c.author.username} `); 
-                              setTimeout(() => commentInputRef.current?.focus(), 50);
-                            }}
-                            className="text-[10px] font-medium text-gray-500 hover:text-unseen-300 transition-colors"
-                          >
-                            Reply
-                          </button>
-                          {currentUser?.id === c.author?._id && (
-                            <button 
-                              onClick={() => handleDeleteComment(c._id)}
-                              className="text-[10px] font-medium text-red-500/80 hover:text-red-400 transition-colors flex items-center gap-0.5"
-                            >
-                              <Trash2 className="w-3 h-3" /> Delete
-                            </button>
-                          )}
-                        </div>
-                        {c.parentComment && (
-                          <div className="text-[10px] text-unseen-500 mt-1">Replying to a comment</div>
-                        )}
-                      </div>
-                    </div>
+                  buildCommentTree(comments).map(c => (
+                    <CommentItem
+                      key={c._id}
+                      comment={c}
+                      onReply={(parent) => {
+                        setReplyingTo(parent);
+                        setCommentText(`@${parent.author.username} `);
+                        setTimeout(() => commentInputRef.current?.focus(), 50);
+                      }}
+                      onDelete={handleDeleteComment}
+                      onLike={toggleCommentLike}
+                      currentUser={currentUser}
+                      formatTimeAgo={formatTimeAgo}
+                    />
                   ))
                 )}
               </div>
@@ -618,7 +728,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                     <Flag className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white font-poppins">Report Whisper</h3>
+                    <h3 className="text-lg font-bold text-white font-poppins">Report Post</h3>
                     <p className="text-[10px] text-gray-500 font-mono">Flag suspicious or violating content</p>
                   </div>
                 </div>
@@ -632,7 +742,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
 
               <div className="space-y-4">
                 <p className="text-xs text-gray-400 font-inter leading-relaxed">
-                  Help us keep the void secure. Explain why this anonymous whisper violates Unseen's standards.
+                  Help us keep the community safe. Explain why this post violates Unseen's standards.
                 </p>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-2 uppercase tracking-wider">Reason for Report</label>
@@ -691,7 +801,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
               </div>
               <h3 className="text-xl font-bold text-white font-poppins mb-2">Delete this post permanently?</h3>
               <p className="text-sm text-gray-400 font-inter leading-relaxed mb-8">
-                This whisper will be erased from the void, disappearing from feeds and search results. This action cannot be undone.
+                This post will be permanently deleted from feeds and search results. This action cannot be undone.
               </p>
 
               <div className="flex gap-3">

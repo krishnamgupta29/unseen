@@ -117,15 +117,15 @@ export default function DownloadPage() {
                   <div className="p-3 bg-unseen-950/80 border border-unseen-800/60 rounded-2xl space-y-1.5 shadow-md">
                     <div className="flex items-center space-x-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#ff0a54]" />
-                      <span className="text-[9px] font-bold text-gray-300">Shadow Echo</span>
+                      <span className="text-[9px] font-bold text-gray-300">Anonymous User</span>
                     </div>
-                    <p className="text-[10px] text-gray-400 font-inter">Say it. Without being seen. Speak into the void without judgment.</p>
+                    <p className="text-[10px] text-gray-400 font-inter">Share your thoughts anonymously. No judgment, no trace.</p>
                   </div>
                   
                   <div className="p-3 bg-unseen-900/40 border border-unseen-700/30 rounded-2xl space-y-2 shadow-md">
                     <div className="flex items-center space-x-1.5">
                       <div className="w-4 h-4 rounded-full bg-gradient-to-br from-unseen-400 to-unseen-600" />
-                      <span className="text-[9px] font-bold text-gray-200">Identity Encrypted</span>
+                      <span className="text-[9px] font-bold text-gray-200">Privacy Active</span>
                     </div>
                     <div className="h-1 w-full bg-unseen-800 rounded-full overflow-hidden">
                       <div className="h-full bg-gradient-to-r from-unseen-500 to-unseen-300 w-[75%]" />
@@ -295,7 +295,7 @@ export default function DownloadPage() {
       <section className="w-full max-w-5xl mx-auto px-6 mb-16 relative z-10">
         <div className="glass p-8 rounded-[36px] border border-unseen-800/40 shadow-xl">
           <h2 className="text-xl md:text-2xl font-poppins font-bold text-white mb-6 text-center md:text-left flex items-center justify-center md:justify-start gap-2">
-            <Smartphone className="w-5 h-5 text-unseen-400" /> 3 Steps to Enter the Shadows
+            <Smartphone className="w-5 h-5 text-unseen-400" /> 3 Steps to Get Started
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -322,7 +322,7 @@ export default function DownloadPage() {
               <span className="w-8 h-8 rounded-full bg-unseen-900 flex items-center justify-center text-unseen-300 font-mono font-bold shrink-0 border border-unseen-800">3</span>
               <div>
                 <h4 className="font-bold text-white text-sm mb-1">Run and Connect</h4>
-                <p className="text-xs text-gray-400 leading-relaxed">Launch the app, create your identity shadow, and enter the void anonymously.</p>
+                <p className="text-xs text-gray-400 leading-relaxed">Launch the app, create your account, and start posting anonymously.</p>
               </div>
             </div>
           </div>

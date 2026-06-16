@@ -34,7 +34,7 @@ const PostSkeleton = () => (
 
 const ProfileHeaderSkeleton = () => (
   <div className="w-full relative min-h-screen bg-[#080016] text-white">
-    <Header title="Shadow Identity" />
+    <Header title="Profile" />
     <div className="p-6 border-b border-unseen-800/30 animate-pulse">
       <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center gap-6">
@@ -397,7 +397,7 @@ function ProfileContent() {
           className={`flex-1 py-4 text-sm font-semibold flex items-center justify-center space-x-2 transition-colors relative ${activeTab === 'posts' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
         >
           <Grid className="w-4 h-4" />
-          <span>Whispers</span>
+          <span>Posts</span>
           {activeTab === 'posts' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-unseen-400 shadow-[0_0_10px_rgba(157,78,221,0.8)]" />}
         </button>
         {isOwnProfile && (
@@ -424,9 +424,9 @@ function ProfileContent() {
               <div className="w-14 h-14 rounded-full bg-unseen-900/40 flex items-center justify-center mb-4 border border-unseen-800/30 shadow-[0_0_12px_rgba(157,78,221,0.1)]">
                 <Shield className="w-6 h-6 text-unseen-400 opacity-55" />
               </div>
-              <p className="text-sm font-semibold text-gray-200">No whispers recorded yet</p>
+              <p className="text-sm font-semibold text-gray-200">No posts made yet</p>
               <p className="text-xs mt-1.5 max-w-xs text-gray-500 leading-relaxed">
-                This shadow identity is completely silent. No whispers have been broadcasted to the void yet.
+                This profile is completely silent. No posts have been made yet.
               </p>
             </div>
           ) : (
@@ -443,7 +443,7 @@ function ProfileContent() {
           ) : savedPosts.length === 0 ? (
             <div className="p-12 text-center text-gray-500 flex flex-col items-center justify-center min-h-[250px]">
               <Bookmark className="w-8 h-8 mb-4 opacity-50 text-unseen-400" />
-              <p>No saved whispers yet.</p>
+              <p>No saved posts yet.</p>
             </div>
           ) : (
             savedPosts.map(post => <PostCard key={post._id} post={post} />)

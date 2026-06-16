@@ -160,7 +160,7 @@ export default function FeedPage() {
 
   return (
     <div className="w-full min-h-screen">
-      <Header title="The Void" />
+      <Header title="Feed" />
 
       {/* Feed Tabs */}
       <div ref={tabsRef} className="relative flex items-center overflow-x-auto border-b border-unseen-800/30 bg-[#080016]/80 backdrop-blur-sm sticky top-0 z-20 no-scrollbar">
@@ -204,7 +204,7 @@ export default function FeedPage() {
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
             maxLength={500}
-            placeholder="Whisper into the void..."
+            placeholder="What's on your mind?"
             className="w-full bg-transparent text-white placeholder-gray-500 focus:outline-none resize-none min-h-[50px] md:min-h-[80px] text-sm font-inter leading-relaxed"
           />
           <div className="flex items-center justify-between mt-3 md:mt-4">
@@ -261,9 +261,9 @@ export default function FeedPage() {
               <div className="w-16 h-16 rounded-full bg-unseen-900/40 flex items-center justify-center mb-4 border border-unseen-800/30 shadow-[0_0_15px_rgba(157,78,221,0.15)]">
                 <Sparkles className="w-7 h-7 text-unseen-400 opacity-60 animate-pulse" />
               </div>
-              <p className="text-base font-semibold text-gray-200">The void is silent</p>
+              <p className="text-base font-semibold text-gray-200">No posts yet</p>
               <p className="text-xs mt-1.5 max-w-xs text-gray-500 leading-relaxed">
-                No whispers have resonated here yet. Be the first to shatter the silence.
+                No posts yet. Be the first to share something.
               </p>
               <button
                 onClick={() => fetchPosts()}

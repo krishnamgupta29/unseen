@@ -66,7 +66,7 @@ function SharedPostPreview({ postId, onClick }: SharedPostPreviewProps) {
   if (!post) {
     return (
       <div className="bg-[#120722]/50 rounded-2xl p-4 border border-unseen-800/40 text-xs text-gray-500 italic w-64 shadow-lg">
-        Deleted Whisper
+        Deleted Post
       </div>
     );
   }
@@ -426,14 +426,14 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full space-y-3 text-gray-500">
             <Loader2 className="w-8 h-8 animate-spin text-unseen-400" />
-            <p className="text-xs font-mono">Decrypting secure chat nodes...</p>
+            <p className="text-xs font-mono">Loading messages...</p>
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center p-8 text-gray-500 text-xs mt-12">
             <p className="bg-unseen-900/40 border border-unseen-800/40 rounded-full px-4 py-2 inline-block font-mono text-[10px] text-unseen-300">
               🔒 End-to-End Symmetric Encryption Active
             </p>
-            <p className="mt-3">Say hello to claim your untraceable thread.</p>
+            <p className="mt-3">Send a message to start chatting.</p>
           </div>
         ) : (
           messages.map((m) => {
@@ -470,7 +470,7 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
                       const postId = match[2];
                       const cleanContent = m.content
                         .replace(/https?:\/\/[^\s]+/g, '')
-                        .replace(/Check out this whisper:\s*"[^"]*"/i, '')
+                        .replace(/Check out this post:\s*"[^"]*"/i, '')
                         .replace(/Link:/i, '')
                         .replace(/\[POST_SHARE:[a-f\d]{24}\]/i, '')
                         .trim();
@@ -536,7 +536,7 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
             onChange={(e) => handleTypingInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             className="flex-1 bg-transparent text-white placeholder-gray-500 text-sm focus:outline-none py-1.5 font-inter"
-            placeholder="Whisper back..."
+            placeholder="Type a message..."
           />
           <button 
             onClick={handleSend} 

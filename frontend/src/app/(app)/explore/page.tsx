@@ -43,7 +43,7 @@ export default function ExplorePage() {
 
   return (
     <div className="w-full min-h-screen">
-      <Header title="Discover" />
+      <Header title="Search" />
       
       <div className="p-4 border-b border-unseen-800/50 sticky top-[73px] z-30 bg-[#080016]/90 backdrop-blur-md">
         <div className="relative w-full">
@@ -55,7 +55,7 @@ export default function ExplorePage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-unseen-900 border border-unseen-700/50 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-unseen-400 focus:ring-1 focus:ring-unseen-400 transition-all shadow-[0_0_15px_rgba(36,0,70,0.5)]"
-            placeholder="Search shadows (usernames, display names)..."
+            placeholder="Search users..."
           />
         </div>
       </div>
@@ -73,8 +73,8 @@ export default function ExplorePage() {
                 <div className="flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-unseen-400" /></div>
               ) : searchResults.length === 0 ? (
                 <div className="p-12 text-center text-gray-500">
-                  <p className="text-sm font-semibold text-gray-200">No identities found</p>
-                  <p className="text-xs mt-1.5 text-gray-500">No matches for &quot;{searchQuery}&quot; in the void.</p>
+                  <p className="text-sm font-semibold text-gray-200">No users found</p>
+                  <p className="text-xs mt-1.5 text-gray-500">No matches for &quot;{searchQuery}&quot;.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -102,7 +102,7 @@ export default function ExplorePage() {
           <div>
             <div className="flex items-center space-x-2 px-6 py-6 border-b border-unseen-800/30">
               <Flame className="w-5 h-5 text-orange-500" />
-              <h2 className="text-lg font-bold font-poppins text-white">Trending Whispers</h2>
+              <h2 className="text-lg font-bold font-poppins text-white">Trending</h2>
             </div>
 
             <div className="p-6">
@@ -115,7 +115,7 @@ export default function ExplorePage() {
                   </div>
                   <p className="text-sm font-semibold text-gray-200">No trending vibes yet</p>
                   <p className="text-xs mt-1.5 max-w-xs text-gray-500 leading-relaxed">
-                    The cosmic frequencies are quiet right now. Once hashtags start appearing in whispers, they will ignite here.
+                    No trending topics yet. Once hashtags start appearing in posts, they will show up here.
                   </p>
                 </div>
               ) : (
@@ -124,7 +124,7 @@ export default function ExplorePage() {
                     <div key={i} className="glass p-4 rounded-xl flex justify-between items-center group cursor-pointer" onClick={() => router.push(`/feed`)}>
                       <div>
                         <p className="text-lg font-semibold text-gray-200 group-hover:text-unseen-400 transition-colors">#{t.tag}</p>
-                        <p className="text-sm text-gray-500">{t.count} whispers in the void</p>
+                        <p className="text-sm text-gray-500">{t.count} posts</p>
                       </div>
                       <Flame className="w-5 h-5 text-unseen-800 group-hover:text-orange-500 transition-colors" />
                     </div>

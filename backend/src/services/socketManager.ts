@@ -136,7 +136,7 @@ export function initSocket(server: HTTPServer): SocketServer {
     });
   });
 
-  // Broadcast network stats & trending vibes every 5 seconds
+  // Broadcast network stats & trending vibes every 60 seconds (reduced from 5s to cut DB load)
   setInterval(async () => {
     try {
       const totalUsers = await User.countDocuments();
@@ -162,7 +162,7 @@ export function initSocket(server: HTTPServer): SocketServer {
     } catch (e) {
       console.error('Error broadcasting network stats:', e);
     }
-  }, 5000);
+  }, 60000);
 
   return io;
 }
@@ -182,5 +182,26 @@ export function isUserOnline(userId: string): boolean {
 export function broadcastEvent(event: string, data: any) {
   if (ioInstance) {
     ioInstance.emit(event, data);
+  }
+}
+
+export function invalidateUserSessions(userId: string, activeSessionId: string) {
+  if (!ioInstance) return;
+  const roomName = `user:${userId}`;
+  const sockets = ioInstance.sockets.adapter.rooms.get(roomName);
+  if (sockets) {
+    const socketIds = Array.from(sockets);
+    for (const socketId of socketIds) {
+      const socket = ioInstance.sockets.sockets.get(socketId);
+      if (socket) {
+        const socketUser = (socket as any).user;
+        if (socketUser && socketUser.sessionId !== activeSessionId) {
+          socket.emit('session:terminated', {
+            message: 'Your account was logged in on another device. For security, this session has been ended.'
+          });
+          socket.disconnect(true);
+        }
+      }
+    }
   }
 }

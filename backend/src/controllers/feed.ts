@@ -25,11 +25,14 @@ export const getFeed = async (req: AuthRequest, res: Response) => {
     let followedAuthors: string[] = [];
 
     if (userId) {
-      // Get recent 100 interactions for personalization
-      const interactions = await UserInteraction.find({ userId })
-        .sort({ createdAt: -1 })
-        .limit(100)
-        .lean();
+      // Run personalization + follower queries in PARALLEL instead of sequentially
+      const [interactions, follows] = await Promise.all([
+        UserInteraction.find({ userId })
+          .sort({ createdAt: -1 })
+          .limit(100)
+          .lean(),
+        Follower.find({ followerId: userId }).lean(),
+      ]);
 
       const moodCounts: Record<string, number> = {};
       const hashtagCounts: Record<string, number> = {};
@@ -51,8 +54,6 @@ export const getFeed = async (req: AuthRequest, res: Response) => {
         .slice(0, 20)
         .map(([tag]) => tag);
 
-      // Get followed authors
-      const follows = await Follower.find({ followerId: userId }).lean();
       followedAuthors = follows.map((f: any) => f.followingId.toString());
     }
 
@@ -75,7 +76,7 @@ export const getFeed = async (req: AuthRequest, res: Response) => {
 
     const candidatePosts = await Post.find(query)
       .sort({ createdAt: -1 })
-      .limit(200) // Score from 200 candidates
+      .limit(100) // Reduced from 200 for faster scoring
       .populate('author', 'username displayName avatarColor')
       .lean();
 
@@ -83,12 +84,14 @@ export const getFeed = async (req: AuthRequest, res: Response) => {
     const ranked = rankPosts(candidatePosts as any, ctx);
     const paginated = ranked.slice(skip, skip + PAGE_SIZE);
 
-    // Populate user-specific interactions
-    if (userId) {
+    // Populate user-specific interactions — run likes + saves in PARALLEL
+    if (userId && paginated.length > 0) {
       const postIds = paginated.map((p: any) => p._id);
       
-      const likes = await UserInteraction.find({ userId, postId: { $in: postIds }, interactionType: 'like' }).lean();
-      const saves = await UserInteraction.find({ userId, postId: { $in: postIds }, interactionType: 'save' }).lean();
+      const [likes, saves] = await Promise.all([
+        UserInteraction.find({ userId, postId: { $in: postIds }, interactionType: 'like' }).lean(),
+        UserInteraction.find({ userId, postId: { $in: postIds }, interactionType: 'save' }).lean(),
+      ]);
       
       const likedPostIds = new Set(likes.map(l => l.postId?.toString()).filter(Boolean));
       const savedPostIds = new Set(saves.map(s => s.postId?.toString()).filter(Boolean));
@@ -126,8 +129,6 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    const updates: Record<string, any> = {};
-
     // Toggle logic for likes and saves
     if (interactionType === 'like' || interactionType === 'save') {
       const existing = await UserInteraction.findOne({ userId, postId, interactionType });
@@ -135,10 +136,19 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
       if (existing) {
         // Unlike or Unsave
         await UserInteraction.deleteOne({ _id: existing._id });
-        if (interactionType === 'like') {
-          updates.$inc = { likesCount: -1 };
+        const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
+        // Single atomic update: decrement count + recalculate engagement
+        const updated = await Post.findByIdAndUpdate(
+          postId,
+          { $inc: { [countField]: -1 } },
+          { new: true }
+        );
+        if (updated) {
+          const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
+            (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
+          updated.engagementScore = E;
+          await updated.save();
         }
-        if (interactionType === 'save') updates.$inc = { savesCount: -1 };
       } else {
         // Like or Save
         await UserInteraction.create({
@@ -150,12 +160,23 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
           hashtags: post.hashtags,
           readDurationMs: readDurationMs || 0,
         });
-        if (interactionType === 'like') {
-          updates.$inc = { likesCount: 1 };
-          // Create notification for like
-          await createNotification(post.author?.toString(), 'LIKE', userId, postId);
+        const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
+        // Single atomic update: increment count + recalculate engagement
+        const updated = await Post.findByIdAndUpdate(
+          postId,
+          { $inc: { [countField]: 1 } },
+          { new: true }
+        );
+        if (updated) {
+          const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
+            (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
+          updated.engagementScore = E;
+          await updated.save();
         }
-        if (interactionType === 'save') updates.$inc = { savesCount: 1 };
+        if (interactionType === 'like') {
+          // Create notification for like (fire and forget)
+          createNotification(post.author?.toString(), 'LIKE', userId, postId).catch(() => {});
+        }
       }
     } else {
       // Normal interactions (view, share, comment)
@@ -169,18 +190,23 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
         readDurationMs: readDurationMs || 0,
       });
 
-      if (interactionType === 'comment') updates.$inc = { commentsCount: 1 };
-      else if (interactionType === 'view') updates.$inc = { viewsCount: 1 };
-      else if (interactionType === 'share') updates.$inc = { repostsCount: 1 };
-    }
+      let countField: string | null = null;
+      if (interactionType === 'comment') countField = 'commentsCount';
+      else if (interactionType === 'view') countField = 'viewsCount';
+      else if (interactionType === 'share') countField = 'repostsCount';
 
-    if (Object.keys(updates).length > 0) {
-      const updated = await Post.findByIdAndUpdate(postId, updates, { new: true });
-      if (updated) {
-        // Recalculate engagement score
-        const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
-          (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
-        await Post.findByIdAndUpdate(postId, { engagementScore: E });
+      if (countField) {
+        const updated = await Post.findByIdAndUpdate(
+          postId,
+          { $inc: { [countField]: 1 } },
+          { new: true }
+        );
+        if (updated) {
+          const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
+            (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
+          updated.engagementScore = E;
+          await updated.save();
+        }
       }
     }
 
@@ -241,8 +267,10 @@ export const createPost = async (req: AuthRequest, res: Response) => {
 // ─── GET /api/feed/stats ───────────────────────────────────────────────────
 export const getNetworkStats = async (_req: AuthRequest, res: Response) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const totalPosts = await Post.countDocuments({ isDeleted: false });
+    const [totalUsers, totalPosts] = await Promise.all([
+      User.countDocuments(),
+      Post.countDocuments({ isDeleted: false }),
+    ]);
     
     // Get real-time active socket connections for Live Shadows
     const activeUsersCount = getActiveConnectionCount();
@@ -269,10 +297,12 @@ export const getPostById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: 'Post not found' });
     }
     
-    // Populate user-specific interactions
+    // Populate user-specific interactions in parallel
     if (userId) {
-      const liked = await UserInteraction.findOne({ userId, postId: post._id, interactionType: 'like' }).lean();
-      const saved = await UserInteraction.findOne({ userId, postId: post._id, interactionType: 'save' }).lean();
+      const [liked, saved] = await Promise.all([
+        UserInteraction.findOne({ userId, postId: post._id, interactionType: 'like' }).lean(),
+        UserInteraction.findOne({ userId, postId: post._id, interactionType: 'save' }).lean(),
+      ]);
       (post as any).isLiked = !!liked;
       (post as any).isSaved = !!saved;
     }

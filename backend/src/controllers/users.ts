@@ -17,23 +17,25 @@ import RefreshToken from '../models/RefreshToken';
 export const getUserProfile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId).select('-passwordHash -loginAttempts -lockUntil').lean();
+    const currentUserId = req.user?.id;
+
+    // Run ALL queries in parallel instead of sequentially
+    const [user, followersCount, followingCount, followDoc] = await Promise.all([
+      User.findById(userId).select('-passwordHash -loginAttempts -lockUntil').lean(),
+      Follower.countDocuments({ following: userId }),
+      Follower.countDocuments({ follower: userId }),
+      currentUserId
+        ? Follower.findOne({ follower: currentUserId, following: userId }).lean()
+        : Promise.resolve(null),
+    ]);
+
     if (!user || user.isSuspended) return res.status(404).json({ message: 'User not found' });
 
-    // Check if the current user is following this profile
-    let isFollowing = false;
-    if (req.user?.id) {
-      const follow = await Follower.findOne({ follower: req.user.id, following: user._id });
-      isFollowing = !!follow;
-    }
+    const isFollowing = !!followDoc;
 
-    // Get the ACTUAL up-to-date counts to prevent out-of-sync stuck states
-    const followersCount = await Follower.countDocuments({ following: user._id });
-    const followingCount = await Follower.countDocuments({ follower: user._id });
-
-    // If cached counts in user document are stale, update them silently
+    // If cached counts in user document are stale, update them silently in background
     if (user.followersCount !== followersCount || user.followingCount !== followingCount) {
-      await User.findByIdAndUpdate(user._id, { followersCount, followingCount });
+      User.findByIdAndUpdate(user._id, { followersCount, followingCount }).catch(() => {});
     }
 
     res.json({

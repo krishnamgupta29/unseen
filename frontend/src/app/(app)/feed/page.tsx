@@ -203,7 +203,6 @@ export default function FeedPage() {
           <textarea
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
-            maxLength={500}
             placeholder="What's on your mind?"
             className="w-full bg-transparent text-white placeholder-gray-500 focus:outline-none resize-none min-h-[50px] md:min-h-[80px] text-sm font-inter leading-relaxed"
           />
@@ -219,9 +218,6 @@ export default function FeedPage() {
               />
             </div>
             <div className="flex items-center space-x-4">
-              <span className={`text-xs ${postContent.length > 450 ? 'text-orange-400' : 'text-gray-600'}`}>
-                {postContent.length}/500
-              </span>
               <button
                 onClick={handlePostSubmit}
                 disabled={!postContent.trim() || isSubmitting}

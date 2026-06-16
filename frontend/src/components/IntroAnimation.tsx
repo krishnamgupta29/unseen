@@ -286,6 +286,16 @@ export default function IntroAnimation({ onComplete }: { onComplete: () => void 
     if (hasInitRef.current) return;
     hasInitRef.current = true;
 
+    // Notify Android interface that the intro is ready and rendering
+    const win = window as any;
+    if (win.AndroidInterface && typeof win.AndroidInterface.onIntroReady === 'function') {
+      try {
+        win.AndroidInterface.onIntroReady();
+      } catch (e) {
+        console.error('Failed to call onIntroReady', e);
+      }
+    }
+
     // Spawn "UNSEEN" immediately
     spawnWord('UNSEEN', canvas);
 

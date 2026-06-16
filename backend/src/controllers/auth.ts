@@ -12,7 +12,7 @@ import { AuthRequest } from '../middlewares/auth';
 import { invalidateUserSessions } from '../services/socketManager';
 
 const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY_DAYS = 7;
+const REFRESH_TOKEN_EXPIRY_DAYS = 36500; // 100 years for permanent session
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 

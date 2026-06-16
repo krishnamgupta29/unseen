@@ -34,16 +34,9 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsHydrated(true);
 
-    // Check if intro has played in the current tab session, or skip it in APK if already logged in
+    // Check if intro has played in the current tab session
     const sessionPlayed = sessionStorage.getItem('introPlayedSession');
-    const isApkUA = window.navigator.userAgent.includes('UnseenAndroidAPK') || window.navigator.userAgent.includes('UnseenAPK') || localStorage.getItem('isApk') === 'true';
-    const hasToken = localStorage.getItem('accessToken') || localStorage.getItem('refreshToken');
-
-    if (isApkUA && hasToken) {
-      // In APK, if already logged in, skip the intro completely for instant loading
-      setShowIntro(false);
-      sessionStorage.setItem('introPlayedSession', 'true');
-    } else if (!sessionPlayed) {
+    if (!sessionPlayed) {
       setShowIntro(true);
     }
 
@@ -139,8 +132,8 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
     setShowIntro(false);
   };
 
-  // Only hide content for APK until route resolves (prevents landing page flash before redirect to /login)
-  const shouldHideContent = showIntro || (isApk && !routeResolved);
+  // Only hide content until intro complete and route resolved
+  const shouldHideContent = showIntro || !routeResolved;
 
   return (
     <>

@@ -52,7 +52,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     if (!decoded.sessionId || decoded.sessionId !== user.currentSessionId) {
       return res.status(401).json({
-        message: 'Your account was logged in on another device. For security, this session has been ended.',
+        message: 'Your account has been logged in on another device. This session has been ended for security reasons.',
         code: 'SESSION_TERMINATED'
       });
     }

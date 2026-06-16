@@ -108,7 +108,8 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}, _retryCo
 
     if (res.status === 401) {
       const data = await res.clone().json().catch(() => ({}));
-      if (data.code === 'TOKEN_EXPIRED') {
+      const localRefreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      if (data.code === 'TOKEN_EXPIRED' || (!accessToken && localRefreshToken)) {
         const refreshed = await refreshAccessToken();
         if (refreshed) return apiFetch<T>(endpoint, options);
       }

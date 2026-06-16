@@ -38,6 +38,7 @@ class MainActivity : android.app.Activity() {
     private lateinit var rootLayout: FrameLayout
     private lateinit var splashLayout: FrameLayout
     private var offlineLayout: FrameLayout? = null
+    private var splashDismissed = false
 
     // Standard dev server IP for android emulator pointing to host localhost:3000
     private val devUrl = "http://10.0.2.2:3000"
@@ -45,6 +46,34 @@ class MainActivity : android.app.Activity() {
     private val prodUrl = "https://unseen-world.vercel.app"
     
     private var targetUrl = prodUrl
+
+    private fun mapDeepLinkUrl(url: String?): String {
+        if (url == null) return targetUrl
+        // If targetUrl is local (devUrl), we should rewrite production domains to devUrl
+        if (targetUrl.startsWith(devUrl)) {
+            val prodDomains = listOf("unseen-world.vercel.app", "unseen-social.vercel.app", "unseen-frontend.onrender.com")
+            for (domain in prodDomains) {
+                if (url.contains(domain)) {
+                    // Extract path (and query parameters) following the domain
+                    val path = url.substringAfter(domain)
+                    return "$devUrl$path"
+                }
+            }
+        }
+        return url
+    }
+
+    fun hideSplash() {
+        if (!splashDismissed) {
+            splashDismissed = true
+            runOnUiThread {
+                if (this::webView.isInitialized && webView.visibility != View.VISIBLE && offlineLayout == null) {
+                    webView.visibility = View.VISIBLE
+                }
+                fadeSplashOverlay()
+            }
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled", "ObsoleteSdkInt")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,7 +95,8 @@ class MainActivity : android.app.Activity() {
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
                 )
-                visibility = View.VISIBLE // Show immediately to display Next.js intro animation right away
+                setBackgroundColor(Color.parseColor("#080016"))
+                visibility = View.INVISIBLE // Start hidden so we only reveal after web intro is ready
                 setLayerType(View.LAYER_TYPE_HARDWARE, null) // Hardware acceleration enabled
             }
             setupWebViewSettings()
@@ -85,6 +115,10 @@ class MainActivity : android.app.Activity() {
             return
         }
 
+        // Setup splash overlay on top of WebView
+        setupSplashOverlay()
+        rootLayout.addView(splashLayout)
+
         setContentView(rootLayout)
 
         // 3. Fullscreen Immersive Mode Configuration (Safe to call after setContentView is executed)
@@ -95,10 +129,10 @@ class MainActivity : android.app.Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Reveal WebView
-                if (webView.visibility != View.VISIBLE && offlineLayout == null) {
-                    webView.visibility = View.VISIBLE
-                }
+                // Safety fallback: dismiss splash after 3 seconds if JS hasn't notified yet
+                webView.postDelayed({
+                    hideSplash()
+                }, 3000)
             }
 
             override fun onReceivedError(
@@ -130,7 +164,7 @@ class MainActivity : android.app.Activity() {
         // 7. Check if launched via deep link URL
         var startUrl = targetUrl
         intent?.data?.let { uri ->
-            startUrl = uri.toString()
+            startUrl = mapDeepLinkUrl(uri.toString())
         }
 
         // 8. Request notification permission if Android 13+
@@ -427,7 +461,8 @@ class MainActivity : android.app.Activity() {
         super.onNewIntent(intent)
         intent?.data?.let { uri ->
             if (this::webView.isInitialized) {
-                webView.loadUrl(uri.toString())
+                val mappedUrl = mapDeepLinkUrl(uri.toString())
+                webView.loadUrl(mappedUrl)
             }
         }
     }
@@ -460,5 +495,10 @@ class WebAppInterface(private val activity: MainActivity) {
                 activity.stopNotificationService()
             }
         }
+    }
+
+    @JavascriptInterface
+    fun onIntroReady() {
+        activity.hideSplash()
     }
 }

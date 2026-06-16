@@ -176,7 +176,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       window.addEventListener('tokenRefreshed', handleTokenRefreshed);
     }
 
-    const hasToken = typeof window !== 'undefined' && localStorage.getItem('accessToken');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    const hasToken = typeof window !== 'undefined' && (localStorage.getItem('accessToken') || localStorage.getItem('refreshToken'));
     if (!hasToken) {
       setCurrentUser(null);
       setIsLoading(false);
@@ -185,7 +186,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const win = window as any;
       if (win.AndroidInterface && typeof win.AndroidInterface.saveToken === 'function') {
         try {
-          win.AndroidInterface.saveToken(hasToken);
+          win.AndroidInterface.saveToken(token);
         } catch (e) {}
       }
 
@@ -249,7 +250,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             </div>
             <h3 className="text-xl font-bold text-white font-poppins mb-2">Session Ended</h3>
             <p className="text-sm text-gray-400 font-inter leading-relaxed mb-6">
-              Your account was logged in on another device. For security, this session has been ended.
+              Your account has been logged in on another device. This session has been ended for security reasons.
             </p>
             <button
               onClick={() => {

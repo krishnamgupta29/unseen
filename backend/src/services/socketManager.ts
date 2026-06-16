@@ -52,7 +52,7 @@ export function initSocket(server: HTTPServer): SocketServer {
   ioInstance = io;
 
   // ── Auth middleware for Socket.io ─────────────────────────────────────
-  io.use((socket: Socket, next) => {
+  io.use(async (socket: Socket, next) => {
     const token =
       socket.handshake.auth?.token ||
       socket.handshake.headers?.authorization?.split(' ')[1];
@@ -61,8 +61,12 @@ export function initSocket(server: HTTPServer): SocketServer {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as {
-        id: string; username: string;
+        id: string; username: string; role?: string; sessionId?: string;
       };
+      const user = await User.findById(decoded.id).select('currentSessionId isActive isSuspended').lean();
+      if (!user || !user.isActive || user.isSuspended || decoded.sessionId !== user.currentSessionId) {
+        return next(new Error('Session invalidated or inactive account'));
+      }
       (socket as any).user = decoded;
       next();
     } catch {
@@ -197,7 +201,7 @@ export function invalidateUserSessions(userId: string, activeSessionId: string) 
         const socketUser = (socket as any).user;
         if (socketUser && socketUser.sessionId !== activeSessionId) {
           socket.emit('session:terminated', {
-            message: 'Your account was logged in on another device. For security, this session has been ended.'
+            message: 'Your account has been logged in on another device. This session has been ended for security reasons.'
           });
           socket.disconnect(true);
         }

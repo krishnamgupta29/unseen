@@ -621,6 +621,9 @@ function ProfileContent() {
                     onChange={(e) => setEditForm(prev => ({ ...prev, displayName: e.target.value }))}
                     className="w-full bg-unseen-900/50 border border-unseen-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-unseen-500 transition-colors"
                   />
+                  <p className="text-[10px] text-amber-500/90 mt-2 whitespace-normal break-words leading-relaxed font-medium flex items-center gap-1">
+                    <span>⚠️ Do not use your real name to maintain total anonymity.</span>
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Bio</label>

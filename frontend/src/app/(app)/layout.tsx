@@ -1,5 +1,15 @@
+import type { Metadata } from 'next';
 import Sidebar from '@/components/layout/Sidebar';
 import RightPanel from '@/components/layout/RightPanel';
+
+// Blanket noindex for all authenticated private routes
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
+};
 
 export default function AppLayout({
   children,

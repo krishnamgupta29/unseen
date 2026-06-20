@@ -3,23 +3,23 @@ import type { Metadata } from 'next';
 const BASE_URL = 'https://unseen-world.vercel.app';
 
 export const metadata: Metadata = {
-  title: 'Contact',
+  title: 'Contact UNSEEN World',
   description:
-    'Get in touch with the UNSEEN team. We are here to help with questions, feedback, or support requests.',
-  alternates: { canonical: `${BASE_URL}/contact` },
+    'Get in touch with the UNSEEN World team. Contact us for any support, feedback, questions, or inquiries regarding our anonymous social platform.',
+  alternates: { canonical: `${BASE_URL}/contact/` },
   openGraph: {
-    title: 'Contact | UNSEEN',
+    title: 'Contact UNSEEN World',
     description:
-      'Get in touch with the UNSEEN team. We are here to help with questions, feedback, or support requests.',
-    url: `${BASE_URL}/contact`,
-    images: [{ url: `${BASE_URL}/icon-512.png`, width: 512, height: 512, alt: 'UNSEEN' }],
+      'Get in touch with the UNSEEN World team. Contact us for any support, feedback, questions, or inquiries regarding our anonymous social platform.',
+    url: `${BASE_URL}/contact/`,
+    images: [{ url: `${BASE_URL}/social-preview.png`, width: 1200, height: 630, alt: 'UNSEEN World' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Contact | UNSEEN',
+    title: 'Contact UNSEEN World',
     description:
-      'Get in touch with the UNSEEN team. We are here to help with questions, feedback, or support requests.',
-    images: [`${BASE_URL}/icon-512.png`],
+      'Get in touch with the UNSEEN World team. Contact us for any support, feedback, questions, or inquiries regarding our anonymous social platform.',
+    images: [`${BASE_URL}/social-preview.png`],
   },
 };
 

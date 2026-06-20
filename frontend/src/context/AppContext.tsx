@@ -243,7 +243,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setNotifications([]);
       disconnectSocket();
       if (typeof window !== 'undefined') {
-        const publicPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download', '/faq'];
+        const publicPaths = [
+          '/',
+          '/login', '/login/',
+          '/signup', '/signup/',
+          '/about', '/about/',
+          '/privacy', '/privacy/',
+          '/terms', '/terms/',
+          '/contact', '/contact/',
+          '/download', '/download/',
+          '/faq', '/faq/'
+        ];
         const isPublic = publicPaths.some(
           path => window.location.pathname === path || (path !== '/' && window.location.pathname.startsWith(path + '/'))
         );

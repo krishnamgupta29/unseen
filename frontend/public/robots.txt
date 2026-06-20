@@ -1,13 +1,13 @@
 User-agent: *
 Allow: /
+Disallow: /login
+Disallow: /signup
 Disallow: /feed
 Disallow: /messages
-Disallow: /notifications
-Disallow: /settings
-Disallow: /saved
-Disallow: /explore
-Disallow: /post
 Disallow: /profile
+Disallow: /settings
+Disallow: /notifications
+Disallow: /saved
 Disallow: /api/
 
 Sitemap: https://unseen-world.vercel.app/sitemap.xml

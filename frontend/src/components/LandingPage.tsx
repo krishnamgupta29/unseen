@@ -209,6 +209,21 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Branded SEO Text Section ─────────────────────────────────── */}
+      <section className="relative z-10 bg-[#080016] py-16 px-6 md:px-12 border-t border-unseen-800/10">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-2xl md:text-3xl font-poppins font-bold text-transparent bg-clip-text bg-gradient-to-r from-unseen-200 to-unseen-450 mb-6">
+            UNSEEN World – A Modern Anonymous Social Platform
+          </h2>
+          <p className="text-gray-400 text-base md:text-lg leading-relaxed mb-6 max-w-3xl mx-auto font-inter">
+            UNSEEN World is a privacy-focused social platform where people can share thoughts, discover conversations, connect with others, and explore communities in a modern anonymous environment.
+          </p>
+          <h3 className="text-lg md:text-xl font-poppins font-semibold text-unseen-300">
+            Connect, Share, and Explore Privately
+          </h3>
+        </div>
+      </section>
+
       {/* ── Footer ───────────────────────────────────────────────────── */}
       <div className="bg-[#080016]">
         <HoverFooter />

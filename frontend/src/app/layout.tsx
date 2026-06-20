@@ -24,26 +24,25 @@ export const metadata: Metadata = {
 
   // ── Core ────────────────────────────────────────────────────────────────────
   title: {
-    default: 'UNSEEN - Anonymous Social Platform',
-    template: '%s | UNSEEN',
+    default: 'UNSEEN World – Anonymous Social Platform',
+    template: '%s – UNSEEN World',
   },
   description:
-    'UNSEEN is a privacy-first anonymous social platform where users can share thoughts, feelings, confessions, and ideas without revealing their identity.',
+    'UNSEEN World is a modern anonymous social platform where people can share thoughts, connect with communities, explore posts, and communicate with privacy.',
   keywords: [
+    'Unseen World',
+    'Unseen social platform',
     'anonymous social media',
-    'anonymous platform',
-    'unseen',
-    'confessions',
     'anonymous community',
-    'private social network',
-    'anonymous posting',
-    'social platform',
+    'private social app',
+    'Unseen app',
+    'social network',
   ],
-  authors: [{ name: 'UNSEEN', url: BASE_URL }],
-  creator: 'UNSEEN',
-  publisher: 'UNSEEN',
+  authors: [{ name: 'UNSEEN World', url: BASE_URL }],
+  creator: 'UNSEEN World',
+  publisher: 'UNSEEN World',
   category: 'social',
-  applicationName: 'UNSEEN',
+  applicationName: 'UNSEEN World',
 
   // ── Google Search Console Verification ──────────────────────────────────────
   verification: {
@@ -52,23 +51,23 @@ export const metadata: Metadata = {
 
   // ── Canonical ───────────────────────────────────────────────────────────────
   alternates: {
-    canonical: BASE_URL,
+    canonical: BASE_URL + '/',
   },
 
   // ── Open Graph ──────────────────────────────────────────────────────────────
   openGraph: {
     type: 'website',
-    siteName: 'UNSEEN',
-    title: 'UNSEEN - Anonymous Social Platform',
+    siteName: 'UNSEEN World',
+    title: 'UNSEEN World – Anonymous Social Platform',
     description:
-      'UNSEEN is a privacy-first anonymous social platform where users can share thoughts, feelings, confessions, and ideas without revealing their identity.',
-    url: BASE_URL,
+      'Share thoughts, discover communities, and connect privately on UNSEEN World.',
+    url: BASE_URL + '/',
     images: [
       {
-        url: `${BASE_URL}/icon-512.png`,
-        width: 512,
-        height: 512,
-        alt: 'UNSEEN - Anonymous Social Platform',
+        url: `${BASE_URL}/social-preview.png`,
+        width: 1200,
+        height: 630,
+        alt: 'UNSEEN World – Anonymous Social Platform',
         type: 'image/png',
       },
     ],
@@ -78,10 +77,10 @@ export const metadata: Metadata = {
   // ── Twitter Cards ───────────────────────────────────────────────────────────
   twitter: {
     card: 'summary_large_image',
-    title: 'UNSEEN - Anonymous Social Platform',
+    title: 'UNSEEN World – Anonymous Social Platform',
     description:
-      'UNSEEN is a privacy-first anonymous social platform where users can share thoughts, feelings, confessions, and ideas without revealing their identity.',
-    images: [`${BASE_URL}/icon-512.png`],
+      'A modern anonymous social platform for private expression and community.',
+    images: [`${BASE_URL}/social-preview.png`],
     creator: '@unseen_app',
     site: '@unseen_app',
   },
@@ -105,10 +104,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
       { url: '/icon-192.png', type: 'image/png', sizes: '192x192' },
       { url: '/icon-512.png', type: 'image/png', sizes: '512x512' },
     ],
-    apple: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
     other: [{ rel: 'mask-icon', url: '/icon-512-maskable.png' }],
   },
 };
@@ -123,58 +124,32 @@ export const viewport = {
 };
 
 // ── Structured Data JSON-LD ──────────────────────────────────────────────────
-const structuredData = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'WebSite',
-      '@id': `${BASE_URL}/#website`,
-      url: BASE_URL,
-      name: 'UNSEEN',
-      description:
-        'A privacy-first anonymous social platform where users share thoughts, feelings, confessions, and ideas without revealing their identity.',
-      publisher: { '@id': `${BASE_URL}/#organization` },
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: {
-          '@type': 'EntryPoint',
-          urlTemplate: `${BASE_URL}/explore?q={search_term_string}`,
-        },
-        'query-input': 'required name=search_term_string',
-      },
-    },
-    {
-      '@type': 'Organization',
-      '@id': `${BASE_URL}/#organization`,
-      name: 'UNSEEN',
-      url: BASE_URL,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${BASE_URL}/icon-512.png`,
-        width: 512,
-        height: 512,
-      },
-      sameAs: [],
-    },
-    {
-      '@type': 'WebApplication',
-      '@id': `${BASE_URL}/#webapp`,
-      name: 'UNSEEN',
-      url: BASE_URL,
-      applicationCategory: 'SocialNetworkingApplication',
-      operatingSystem: 'Web, Android',
-      description:
-        'A privacy-first anonymous social platform for sharing thoughts, confessions, and ideas without revealing your identity.',
-      offers: {
-        '@type': 'Offer',
-        price: '0',
-        priceCurrency: 'USD',
-      },
-      screenshot: `${BASE_URL}/icon-512.png`,
-      creator: { '@id': `${BASE_URL}/#organization` },
-    },
-  ],
-};
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'UNSEEN World',
+    url: 'https://unseen-world.vercel.app/',
+    logo: 'https://unseen-world.vercel.app/icon.png',
+    description: 'A modern anonymous social platform for sharing thoughts, discovering communities, and connecting privately.',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'UNSEEN World',
+    url: 'https://unseen-world.vercel.app/',
+    description: 'Anonymous social platform and private community network.',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'UNSEEN World',
+    applicationCategory: 'SocialNetworkingApplication',
+    operatingSystem: 'Android',
+    url: 'https://unseen-world.vercel.app/download/',
+    description: 'UNSEEN World is an anonymous social networking application.',
+  },
+];
 
 export default function RootLayout({
   children,

@@ -79,13 +79,18 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const normalizedPath = useMemo(() => {
+    if (!pathname) return '';
+    return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  }, [pathname]);
+
   useEffect(() => {
     // Handle routing guards once hydrated and auth is resolved
     if (isHydrated && !authLoading) {
       if (!currentUser) {
         if (isApk) {
           // APK only: bypass landing page, send unauthenticated users straight to /login
-          if (pathname !== '/login' && pathname !== '/signup' && pathname !== '/download') {
+          if (normalizedPath !== '/login' && normalizedPath !== '/signup' && normalizedPath !== '/download') {
             router.replace('/login');
           } else {
             setRouteResolved(true);
@@ -94,7 +99,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
           // Web (desktop + mobile browser): allow home page and public pages
           const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download', '/faq'];
           const isAllowed = allowedPaths.some(
-            path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/'))
+            path => normalizedPath === path || (path !== '/' && normalizedPath?.startsWith(path + '/'))
           );
           if (!isAllowed) {
             router.replace('/login');
@@ -105,7 +110,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
       } else {
         // Authenticated users: redirect away from auth/landing pages to feed
         const authOrLandingPaths = ['/', '/login', '/signup'];
-        if (authOrLandingPaths.includes(pathname)) {
+        if (authOrLandingPaths.includes(normalizedPath)) {
           router.replace('/feed');
         } else {
           setRouteResolved(true);
@@ -122,36 +127,31 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         // User was previously logged in — show content immediately
         // If the token turns out invalid, the auth context will redirect to /login later
         const authOrLandingPaths = ['/', '/login', '/signup'];
-        if (authOrLandingPaths.includes(pathname)) {
+        if (authOrLandingPaths.includes(normalizedPath)) {
           router.replace('/feed');
         } else {
           setRouteResolved(true);
         }
       }
     }
-  }, [isHydrated, authLoading, currentUser, pathname, router, isApk]);
+  }, [isHydrated, authLoading, currentUser, normalizedPath, router, isApk]);
 
   // Mark route as resolved once pathname is at the correct destination
   useEffect(() => {
     if (isHydrated && !authLoading) {
-      if (!currentUser && isApk && (pathname === '/login' || pathname === '/signup' || pathname === '/download')) {
+      if (!currentUser && isApk && (normalizedPath === '/login' || normalizedPath === '/signup' || normalizedPath === '/download')) {
         setRouteResolved(true);
       } else if (!currentUser && !isApk) {
         const allowedPaths = ['/', '/login', '/signup', '/about', '/privacy', '/terms', '/contact', '/download', '/faq'];
         const isAllowed = allowedPaths.some(
-          path => pathname === path || (path !== '/' && pathname?.startsWith(path + '/'))
+          path => normalizedPath === path || (path !== '/' && normalizedPath?.startsWith(path + '/'))
         );
         if (isAllowed) setRouteResolved(true);
-      } else if (currentUser && pathname !== '/' && pathname !== '/login' && pathname !== '/signup') {
+      } else if (currentUser && normalizedPath !== '/' && normalizedPath !== '/login' && normalizedPath !== '/signup') {
         setRouteResolved(true);
       }
     }
-  }, [pathname, isHydrated, authLoading, currentUser, isApk]);
-
-  // Prevent flash of page content during hydration
-  if (!isHydrated) {
-    return <div className="fixed inset-0 z-[9999] bg-[#000000]" />;
-  }
+  }, [normalizedPath, isHydrated, authLoading, currentUser, isApk]);
 
   const handleIntroComplete = () => {
     localStorage.setItem('introPlayed', 'true');
@@ -163,12 +163,32 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Fallback styling for when Javascript is disabled. It overrides the hiding classes and overlays */}
+      <noscript>
+        <style dangerouslySetInnerHTML={{ __html: `
+          .noscript-hidden-content {
+            opacity: 1 !important;
+            height: auto !important;
+            overflow: visible !important;
+            pointer-events: auto !important;
+          }
+          .noscript-hide {
+            display: none !important;
+          }
+        `}} />
+      </noscript>
+
+      {/* Before hydration, show a black screen overlay to prevent flash of content */}
+      {!isHydrated && (
+        <div className="fixed inset-0 z-[9999] bg-[#080016] noscript-hide" />
+      )}
+
       {showIntro && (
         <IntroAnimation key="intro" onComplete={handleIntroComplete} />
       )}
       
-      {/* Hide content while intro plays — use opacity-0 NOT invisible, so the fixed WebGL canvas keeps rendering */}
-      <div className={shouldHideContent ? 'opacity-0 h-0 overflow-hidden pointer-events-none' : 'contents'}>
+      {/* Keep children in DOM so it is pre-rendered for search engines. Hiding classes are overridden if JS is disabled. */}
+      <div className={(!isHydrated || shouldHideContent) ? 'opacity-0 h-0 overflow-hidden pointer-events-none noscript-hidden-content' : 'contents'}>
         {children}
       </div>
 

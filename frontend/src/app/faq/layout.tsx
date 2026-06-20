@@ -3,23 +3,23 @@ import type { Metadata } from 'next';
 const BASE_URL = 'https://unseen-world.vercel.app';
 
 export const metadata: Metadata = {
-  title: 'FAQ',
+  title: 'UNSEEN World FAQ',
   description:
-    'Frequently asked questions about UNSEEN — how anonymity works, account management, privacy, and more.',
-  alternates: { canonical: `${BASE_URL}/faq` },
+    'Frequently Asked Questions about UNSEEN World. Find answers on how our anonymous social network, encryption, privacy protection, and community moderation work.',
+  alternates: { canonical: `${BASE_URL}/faq/` },
   openGraph: {
-    title: 'FAQ | UNSEEN',
+    title: 'UNSEEN World FAQ',
     description:
-      'Frequently asked questions about UNSEEN — how anonymity works, account management, privacy, and more.',
-    url: `${BASE_URL}/faq`,
-    images: [{ url: `${BASE_URL}/icon-512.png`, width: 512, height: 512, alt: 'UNSEEN' }],
+      'Frequently Asked Questions about UNSEEN World. Find answers on how our anonymous social network, encryption, privacy protection, and community moderation work.',
+    url: `${BASE_URL}/faq/`,
+    images: [{ url: `${BASE_URL}/social-preview.png`, width: 1200, height: 630, alt: 'UNSEEN World' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FAQ | UNSEEN',
+    title: 'UNSEEN World FAQ',
     description:
-      'Frequently asked questions about UNSEEN — how anonymity works, account management, privacy, and more.',
-    images: [`${BASE_URL}/icon-512.png`],
+      'Frequently Asked Questions about UNSEEN World. Find answers on how our anonymous social network, encryption, privacy protection, and community moderation work.',
+    images: [`${BASE_URL}/social-preview.png`],
   },
 };
 

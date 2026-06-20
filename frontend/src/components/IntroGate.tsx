@@ -226,7 +226,13 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
                   if (typeof window !== 'undefined' && (window as any).AndroidInterface && (window as any).AndroidInterface.openInBrowser) {
                     (window as any).AndroidInterface.openInBrowser('https://unseen-world.vercel.app/download/');
                   } else {
-                    window.location.href = '/download/';
+                    const ua = typeof window !== 'undefined' ? window.navigator.userAgent : '';
+                    const isApkUA = ua.includes('UnseenAndroidAPK') || ua.includes('UnseenAPK');
+                    if (isApkUA) {
+                      window.location.href = 'https://unseen-world.vercel.app/unseen.apk';
+                    } else {
+                      window.location.href = '/download/';
+                    }
                   }
                 }}
                 className="flex-1 py-3 bg-gradient-to-r from-unseen-600 to-purple-650 hover:shadow-[0_0_20px_rgba(123,44,191,0.3)] transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-white cursor-pointer"

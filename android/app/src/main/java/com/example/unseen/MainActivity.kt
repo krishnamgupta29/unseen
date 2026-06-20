@@ -118,6 +118,16 @@ class MainActivity : android.app.Activity() {
         // 3. Fullscreen Immersive Mode Configuration (Safe to call after setContentView is executed)
         setupFullscreenImmersive()
 
+        // Download Listener to delegate APK downloads to the default system browser
+        webView.setDownloadListener { url, _, _, _, _ ->
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "No browser found to download APK", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // 4. WebView Clients Configuration
         webView.webChromeClient = WebChromeClient()
         webView.webViewClient = object : WebViewClient() {

@@ -44,25 +44,32 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
 
     // Version check for native Android APK
     if (typeof window !== 'undefined') {
-      const ua = window.navigator.userAgent;
-      const isApkUA = ua.includes('UnseenAndroidAPK');
-      if (isApkUA) {
-        const match = ua.match(/UnseenAndroidAPK\/([0-9.]+)/);
-        // If no version found in UA, it's a pre-versioning (old) APK → treat as '0.0' so it always triggers the update alert
-        const currentVersion = match ? match[1] : '0.0';
+      const currentPath = window.location.pathname;
+      const normalizedCurrentPath = currentPath.length > 1 && currentPath.endsWith('/') 
+        ? currentPath.slice(0, -1) 
+        : currentPath;
 
-        fetch('/app-version.json')
-          .then(res => res.json())
-          .then(data => {
-            if (data && data.version && data.version !== currentVersion) {
-              const dismissed = sessionStorage.getItem('dismissedUpdate');
-              if (dismissed !== data.version) {
-                setUpdateNotes(data.releaseNotes || '');
-                setShowUpdateModal(true);
+      if (normalizedCurrentPath !== '/download') {
+        const ua = window.navigator.userAgent;
+        const isApkUA = ua.includes('UnseenAndroidAPK');
+        if (isApkUA) {
+          const match = ua.match(/UnseenAndroidAPK\/([0-9.]+)/);
+          // If no version found in UA, it's a pre-versioning (old) APK → treat as '0.0' so it always triggers the update alert
+          const currentVersion = match ? match[1] : '0.0';
+
+          fetch('/app-version.json')
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.version && data.version !== currentVersion) {
+                const dismissed = sessionStorage.getItem('dismissedUpdate');
+                if (dismissed !== data.version) {
+                  setUpdateNotes(data.releaseNotes || '');
+                  setShowUpdateModal(true);
+                }
               }
-            }
-          })
-          .catch(err => console.error('Failed to check app version', err));
+            })
+            .catch(err => console.error('Failed to check app version', err));
+        }
       }
     }
 

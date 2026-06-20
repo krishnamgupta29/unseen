@@ -457,4 +457,16 @@ class WebAppInterface(private val activity: MainActivity) {
     fun onIntroReady() {
         activity.hideSplash()
     }
+
+    @JavascriptInterface
+    fun openInBrowser(url: String) {
+        activity.runOnUiThread {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                activity.startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(activity, "No browser found to open link", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 }

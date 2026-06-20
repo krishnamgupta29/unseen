@@ -216,14 +216,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
               <button
                 onClick={() => {
                   setShowUpdateModal(false);
-                  fetch('/app-version.json')
-                    .then(res => res.json())
-                    .then(data => {
-                      window.location.href = data.url || '/unseen.apk';
-                    })
-                    .catch(() => {
-                      window.location.href = '/unseen.apk';
-                    });
+                  window.location.href = '/download/';
                 }}
                 className="flex-1 py-3 bg-gradient-to-r from-unseen-600 to-purple-650 hover:shadow-[0_0_20px_rgba(123,44,191,0.3)] transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-white cursor-pointer"
               >

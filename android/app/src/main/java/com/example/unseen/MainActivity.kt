@@ -36,7 +36,6 @@ class MainActivity : android.app.Activity() {
 
     private lateinit var webView: WebView
     private lateinit var rootLayout: FrameLayout
-    private lateinit var splashLayout: FrameLayout
     private var offlineLayout: FrameLayout? = null
     private var splashDismissed = false
 
@@ -70,7 +69,6 @@ class MainActivity : android.app.Activity() {
                 if (this::webView.isInitialized && webView.visibility != View.VISIBLE && offlineLayout == null) {
                     webView.visibility = View.VISIBLE
                 }
-                fadeSplashOverlay()
             }
         }
     }
@@ -96,7 +94,7 @@ class MainActivity : android.app.Activity() {
                     FrameLayout.LayoutParams.MATCH_PARENT
                 )
                 setBackgroundColor(Color.parseColor("#080016"))
-                visibility = View.INVISIBLE // Start hidden so we only reveal after web intro is ready
+                visibility = View.VISIBLE
                 setLayerType(View.LAYER_TYPE_HARDWARE, null) // Hardware acceleration enabled
             }
             setupWebViewSettings()
@@ -114,10 +112,6 @@ class MainActivity : android.app.Activity() {
             setContentView(rootLayout)
             return
         }
-
-        // Setup splash overlay on top of WebView
-        setupSplashOverlay()
-        rootLayout.addView(splashLayout)
 
         setContentView(rootLayout)
 
@@ -257,55 +251,7 @@ class MainActivity : android.app.Activity() {
         }
     }
 
-    private fun setupSplashOverlay() {
-        splashLayout = FrameLayout(this).apply {
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            setBackgroundColor(Color.parseColor("#080016"))
-        }
 
-        // Center logo image
-        val logoSize = dpToPx(160)
-        val logoView = ImageView(this).apply {
-            val resId = resources.getIdentifier("splash_logo", "drawable", packageName)
-            if (resId != 0) {
-                setImageResource(resId)
-            } else {
-                setImageResource(R.mipmap.ic_launcher)
-            }
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            layoutParams = FrameLayout.LayoutParams(logoSize, logoSize).apply {
-                gravity = Gravity.CENTER
-            }
-        }
-
-        // Progress bar below the logo
-        val progressBarSize = dpToPx(40)
-        val progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleLarge).apply {
-            indeterminateTintList = ColorStateList.valueOf(Color.parseColor("#9D4EDD"))
-            layoutParams = FrameLayout.LayoutParams(progressBarSize, progressBarSize).apply {
-                gravity = Gravity.CENTER
-                topMargin = dpToPx(120) // Push below center
-            }
-        }
-
-        splashLayout.addView(logoView)
-        splashLayout.addView(progressBar)
-    }
-
-    private fun fadeSplashOverlay() {
-        if (this::splashLayout.isInitialized && splashLayout.parent != null) {
-            splashLayout.animate()
-                .alpha(0f)
-                .setDuration(400)
-                .withEndAction {
-                    rootLayout.removeView(splashLayout)
-                }
-                .start()
-        }
-    }
 
     private fun showOfflineScreen() {
         if (offlineLayout != null) return
@@ -401,9 +347,6 @@ class MainActivity : android.app.Activity() {
         rootLayout.addView(offlineLayout)
 
         webView.visibility = View.INVISIBLE
-        if (this::splashLayout.isInitialized) {
-            splashLayout.visibility = View.GONE
-        }
     }
 
     private fun hideOfflineScreen() {
@@ -411,9 +354,6 @@ class MainActivity : android.app.Activity() {
             rootLayout.removeView(it)
         }
         offlineLayout = null
-        if (this::splashLayout.isInitialized) {
-            splashLayout.visibility = View.VISIBLE
-        }
     }
 
     private fun isNetworkAvailable(): Boolean {

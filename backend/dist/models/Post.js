@@ -36,7 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const mongoose_1 = __importStar(require("mongoose"));
 const PostSchema = new mongoose_1.Schema({
     author: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
-    content: { type: String, required: true, maxlength: 500 },
+    content: { type: String, required: true },
     moodTag: { type: String, trim: true, maxlength: 30 },
     hashtags: [{ type: String, lowercase: true }],
     community: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Community' },

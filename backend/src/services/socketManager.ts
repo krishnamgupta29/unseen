@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { encrypt, decrypt } from '../services/encryption';
 import Post from '../models/Post';
 import User from '../models/User';
+import Message from '../models/Message';
 
 interface ConnectedUser {
   userId: string;
@@ -120,8 +121,20 @@ export function initSocket(server: HTTPServer): SocketServer {
     });
 
     // ── Read receipts ──────────────────────────────────────────────────
-    socket.on('message:read', (data: { senderId: string }) => {
-      io.to(`user:${data.senderId}`).emit('message:read', { readBy: user.id });
+    socket.on('message:read', async (data: { senderId: string }) => {
+      const myId = user.id;
+      const otherId = data.senderId;
+      const conversationId = [myId, otherId].sort().join('_');
+      try {
+        await Message.updateMany(
+          { conversationId, receiver: myId, isRead: false },
+          { isRead: true, readAt: new Date() }
+        );
+        io.to(`user:${otherId}`).emit('message:read', { readBy: myId, conversationId });
+        io.to(`user:${myId}`).emit('message:read', { readBy: myId, conversationId });
+      } catch (e) {
+        console.error('Failed to mark messages as read via socket:', e);
+      }
     });
 
     // ── Reactions ─────────────────────────────────────────────────────
@@ -186,6 +199,12 @@ export function isUserOnline(userId: string): boolean {
 export function broadcastEvent(event: string, data: any) {
   if (ioInstance) {
     ioInstance.emit(event, data);
+  }
+}
+
+export function sendToUser(userId: string, event: string, data: any) {
+  if (ioInstance) {
+    ioInstance.to(`user:${userId}`).emit(event, data);
   }
 }
 

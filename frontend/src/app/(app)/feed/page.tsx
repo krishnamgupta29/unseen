@@ -9,6 +9,7 @@ import { feed, FeedMode } from '@/lib/api';
 import { useAppStore } from '@/lib/store';
 import { useShallow } from 'zustand/react/shallow';
 import { getSocket } from '@/lib/socketClient';
+import { useAppContext } from '@/context/AppContext';
 
 const TABS: { id: FeedMode; label: string; emoji: string }[] = [
   { id: 'for_you',    label: 'For You',    emoji: '✦'  },
@@ -41,6 +42,7 @@ const PostSkeleton = () => (
 );
 
 export default function FeedPage() {
+  const { currentUser } = useAppContext();
   const [activeTab, setActiveTab] = useState<FeedMode>('for_you');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,18 +63,20 @@ export default function FeedPage() {
 
   // Load cached posts on mount / tab change
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(`cached_feed_${activeTab}`);
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      const cached = localStorage.getItem(`cached_feed_${activeTab}:${currentUser.id}`);
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
           useAppStore.getState().setFeed(activeTab, parsed);
           setLoading(false);
         } catch (_) {}
+      } else {
+        setLoading(true);
       }
     }
     fetchPosts();
-  }, [activeTab]);
+  }, [activeTab, currentUser?.id]);
 
   // Socket-driven realtime refresh (new post/deleted post events)
   useEffect(() => {
@@ -119,8 +123,8 @@ export default function FeedPage() {
       const data = await feed.get(activeTab, 1);
       const fetched = data.posts || [];
       useAppStore.getState().setFeed(activeTab, fetched);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`cached_feed_${activeTab}`, JSON.stringify(fetched));
+      if (typeof window !== 'undefined' && currentUser?.id) {
+        localStorage.setItem(`cached_feed_${activeTab}:${currentUser.id}`, JSON.stringify(fetched));
       }
     } catch (e: any) {
       if (

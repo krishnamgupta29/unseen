@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePost = exports.getPostById = exports.getNetworkStats = exports.createPost = exports.getTrendingTags = exports.recordInteraction = exports.getFeed = void 0;
+exports.deletePost = exports.getPostById = exports.getNetworkStats = exports.createPost = exports.getTrendingTags = exports.recordInteraction = exports.getFeed = exports.invalidateTrendingCache = void 0;
 const Post_1 = __importDefault(require("../models/Post"));
 const User_1 = __importDefault(require("../models/User"));
 const UserInteraction_1 = __importDefault(require("../models/UserInteraction"));
@@ -12,6 +12,12 @@ const notificationService_1 = require("../services/notificationService");
 const moderationAI_1 = require("../services/moderationAI");
 const feedAlgorithm_1 = require("../services/feedAlgorithm");
 const socketManager_1 = require("../services/socketManager");
+let cachedTrendingTags = null;
+let lastTrendingFetch = 0;
+const invalidateTrendingCache = () => {
+    cachedTrendingTags = null;
+};
+exports.invalidateTrendingCache = invalidateTrendingCache;
 const PAGE_SIZE = 20;
 // ─── GET /api/feed ─────────────────────────────────────────────────────────
 const getFeed = async (req, res) => {
@@ -25,11 +31,14 @@ const getFeed = async (req, res) => {
         let userHashtags = [];
         let followedAuthors = [];
         if (userId) {
-            // Get recent 100 interactions for personalization
-            const interactions = await UserInteraction_1.default.find({ userId })
-                .sort({ createdAt: -1 })
-                .limit(100)
-                .lean();
+            // Run personalization + follower queries in PARALLEL instead of sequentially
+            const [interactions, follows] = await Promise.all([
+                UserInteraction_1.default.find({ userId })
+                    .sort({ createdAt: -1 })
+                    .limit(100)
+                    .lean(),
+                Follower_1.default.find({ followerId: userId }).lean(),
+            ]);
             const moodCounts = {};
             const hashtagCounts = {};
             for (const i of interactions) {
@@ -47,8 +56,6 @@ const getFeed = async (req, res) => {
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 20)
                 .map(([tag]) => tag);
-            // Get followed authors
-            const follows = await Follower_1.default.find({ followerId: userId }).lean();
             followedAuthors = follows.map((f) => f.followingId.toString());
         }
         const ctx = (0, feedAlgorithm_1.buildUserContext)(followedAuthors, userMoods, userHashtags, mode);
@@ -63,17 +70,19 @@ const getFeed = async (req, res) => {
         }
         const candidatePosts = await Post_1.default.find(query)
             .sort({ createdAt: -1 })
-            .limit(200) // Score from 200 candidates
+            .limit(100) // Reduced from 200 for faster scoring
             .populate('author', 'username displayName avatarColor')
             .lean();
         // Rank using algorithm
         const ranked = (0, feedAlgorithm_1.rankPosts)(candidatePosts, ctx);
         const paginated = ranked.slice(skip, skip + PAGE_SIZE);
-        // Populate user-specific interactions
-        if (userId) {
+        // Populate user-specific interactions — run likes + saves in PARALLEL
+        if (userId && paginated.length > 0) {
             const postIds = paginated.map((p) => p._id);
-            const likes = await UserInteraction_1.default.find({ userId, postId: { $in: postIds }, interactionType: 'like' }).lean();
-            const saves = await UserInteraction_1.default.find({ userId, postId: { $in: postIds }, interactionType: 'save' }).lean();
+            const [likes, saves] = await Promise.all([
+                UserInteraction_1.default.find({ userId, postId: { $in: postIds }, interactionType: 'like' }).lean(),
+                UserInteraction_1.default.find({ userId, postId: { $in: postIds }, interactionType: 'save' }).lean(),
+            ]);
             const likedPostIds = new Set(likes.map(l => l.postId?.toString()).filter(Boolean));
             const savedPostIds = new Set(saves.map(s => s.postId?.toString()).filter(Boolean));
             const followedAuthorIds = new Set(followedAuthors);
@@ -108,18 +117,21 @@ const recordInteraction = async (req, res) => {
         const post = await Post_1.default.findById(postId);
         if (!post)
             return res.status(404).json({ message: 'Post not found' });
-        const updates = {};
         // Toggle logic for likes and saves
         if (interactionType === 'like' || interactionType === 'save') {
             const existing = await UserInteraction_1.default.findOne({ userId, postId, interactionType });
             if (existing) {
                 // Unlike or Unsave
                 await UserInteraction_1.default.deleteOne({ _id: existing._id });
-                if (interactionType === 'like') {
-                    updates.$inc = { likesCount: -1 };
+                const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
+                // Single atomic update: decrement count + recalculate engagement
+                const updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: -1 } }, { new: true });
+                if (updated) {
+                    const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
+                        (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
+                    updated.engagementScore = E;
+                    await updated.save();
                 }
-                if (interactionType === 'save')
-                    updates.$inc = { savesCount: -1 };
             }
             else {
                 // Like or Save
@@ -132,13 +144,19 @@ const recordInteraction = async (req, res) => {
                     hashtags: post.hashtags,
                     readDurationMs: readDurationMs || 0,
                 });
-                if (interactionType === 'like') {
-                    updates.$inc = { likesCount: 1 };
-                    // Create notification for like
-                    await (0, notificationService_1.createNotification)(post.author?.toString(), 'LIKE', userId, postId);
+                const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
+                // Single atomic update: increment count + recalculate engagement
+                const updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: 1 } }, { new: true });
+                if (updated) {
+                    const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
+                        (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
+                    updated.engagementScore = E;
+                    await updated.save();
                 }
-                if (interactionType === 'save')
-                    updates.$inc = { savesCount: 1 };
+                if (interactionType === 'like') {
+                    // Create notification for like (fire and forget)
+                    (0, notificationService_1.createNotification)(post.author?.toString(), 'LIKE', userId, postId).catch(() => { });
+                }
             }
         }
         else {
@@ -152,22 +170,24 @@ const recordInteraction = async (req, res) => {
                 hashtags: post.hashtags,
                 readDurationMs: readDurationMs || 0,
             });
+            let countField = null;
             if (interactionType === 'comment')
-                updates.$inc = { commentsCount: 1 };
+                countField = 'commentsCount';
             else if (interactionType === 'view')
-                updates.$inc = { viewsCount: 1 };
+                countField = 'viewsCount';
             else if (interactionType === 'share')
-                updates.$inc = { repostsCount: 1 };
-        }
-        if (Object.keys(updates).length > 0) {
-            const updated = await Post_1.default.findByIdAndUpdate(postId, updates, { new: true });
-            if (updated) {
-                // Recalculate engagement score
-                const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
-                    (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
-                await Post_1.default.findByIdAndUpdate(postId, { engagementScore: E });
+                countField = 'repostsCount';
+            if (countField) {
+                const updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: 1 } }, { new: true });
+                if (updated) {
+                    const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
+                        (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
+                    updated.engagementScore = E;
+                    await updated.save();
+                }
             }
         }
+        (0, exports.invalidateTrendingCache)();
         res.json({ message: 'Interaction recorded' });
     }
     catch (error) {
@@ -178,14 +198,72 @@ exports.recordInteraction = recordInteraction;
 // ─── GET /api/feed/trending-tags ─────────────────────────────────────────
 const getTrendingTags = async (_req, res) => {
     try {
-        const since = new Date(Date.now() - 24 * 3600000);
-        const result = await Post_1.default.aggregate([
-            { $match: { createdAt: { $gte: since }, isDeleted: false, moodTag: { $exists: true, $ne: '' } } },
-            { $group: { _id: '$moodTag', count: { $sum: 1 } } },
+        const now = Date.now();
+        if (cachedTrendingTags && (now - lastTrendingFetch < 30000)) {
+            return res.json(cachedTrendingTags);
+        }
+        let since = new Date(Date.now() - 24 * 3600000);
+        let result = await Post_1.default.aggregate([
+            {
+                $match: {
+                    createdAt: { $gte: since },
+                    isDeleted: false,
+                    moderationStatus: { $ne: 'removed' },
+                    moodTag: { $exists: true, $ne: '' }
+                }
+            },
+            {
+                $group: {
+                    _id: '$moodTag',
+                    count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } }
+                }
+            },
             { $sort: { count: -1 } },
             { $limit: 5 },
         ]);
-        res.json(result.map(r => ({ tag: r._id, count: r.count })));
+        if (result.length === 0) {
+            since = new Date(Date.now() - 7 * 24 * 3600000);
+            result = await Post_1.default.aggregate([
+                {
+                    $match: {
+                        createdAt: { $gte: since },
+                        isDeleted: false,
+                        moderationStatus: { $ne: 'removed' },
+                        moodTag: { $exists: true, $ne: '' }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$moodTag',
+                        count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } }
+                    }
+                },
+                { $sort: { count: -1 } },
+                { $limit: 5 },
+            ]);
+        }
+        if (result.length === 0) {
+            result = await Post_1.default.aggregate([
+                {
+                    $match: {
+                        isDeleted: false,
+                        moderationStatus: { $ne: 'removed' },
+                        moodTag: { $exists: true, $ne: '' }
+                    }
+                },
+                {
+                    $group: {
+                        _id: '$moodTag',
+                        count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } }
+                    }
+                },
+                { $sort: { count: -1 } },
+                { $limit: 5 },
+            ]);
+        }
+        cachedTrendingTags = result.map(r => ({ tag: r._id, count: r.count }));
+        lastTrendingFetch = now;
+        res.json(cachedTrendingTags);
     }
     catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -213,6 +291,7 @@ const createPost = async (req, res) => {
             moderationStatus: modResult?.isFlagged ? 'review' : 'clear',
         });
         const populated = await post.populate('author', 'username displayName avatarColor');
+        (0, exports.invalidateTrendingCache)();
         res.status(201).json(populated);
     }
     catch (error) {
@@ -223,8 +302,10 @@ exports.createPost = createPost;
 // ─── GET /api/feed/stats ───────────────────────────────────────────────────
 const getNetworkStats = async (_req, res) => {
     try {
-        const totalUsers = await User_1.default.countDocuments();
-        const totalPosts = await Post_1.default.countDocuments({ isDeleted: false });
+        const [totalUsers, totalPosts] = await Promise.all([
+            User_1.default.countDocuments(),
+            Post_1.default.countDocuments({ isDeleted: false }),
+        ]);
         // Get real-time active socket connections for Live Shadows
         const activeUsersCount = (0, socketManager_1.getActiveConnectionCount)();
         res.json({
@@ -248,10 +329,12 @@ const getPostById = async (req, res) => {
         if (!post) {
             return res.status(404).json({ message: 'Post not found' });
         }
-        // Populate user-specific interactions
+        // Populate user-specific interactions in parallel
         if (userId) {
-            const liked = await UserInteraction_1.default.findOne({ userId, postId: post._id, interactionType: 'like' }).lean();
-            const saved = await UserInteraction_1.default.findOne({ userId, postId: post._id, interactionType: 'save' }).lean();
+            const [liked, saved] = await Promise.all([
+                UserInteraction_1.default.findOne({ userId, postId: post._id, interactionType: 'like' }).lean(),
+                UserInteraction_1.default.findOne({ userId, postId: post._id, interactionType: 'save' }).lean(),
+            ]);
             post.isLiked = !!liked;
             post.isSaved = !!saved;
         }
@@ -277,6 +360,7 @@ const deletePost = async (req, res) => {
         await UserInteraction_1.default.deleteMany({ postId });
         // Broadcast post deletion to all clients in real-time
         (0, socketManager_1.broadcastEvent)('post:deleted', { postId });
+        (0, exports.invalidateTrendingCache)();
         res.json({ message: 'Post permanently deleted' });
     }
     catch (error) {

@@ -123,13 +123,24 @@ const deleteComment = async (req, res) => {
         if (comment.author.toString() !== req.user.id) {
             return res.status(403).json({ message: 'Unauthorized to delete this comment' });
         }
-        comment.isDeleted = true;
-        await comment.save();
+        // Recursive helper to mark comment and all descendants as deleted
+        const deleteRecursive = async (id) => {
+            const target = await Comment_1.default.findByIdAndUpdate(id, { isDeleted: true });
+            if (!target)
+                return 0;
+            let count = 1;
+            const replies = await Comment_1.default.find({ parentComment: new mongoose_1.default.Types.ObjectId(id), isDeleted: false });
+            for (const reply of replies) {
+                count += await deleteRecursive(reply._id.toString());
+            }
+            return count;
+        };
+        const deletedCount = await deleteRecursive(commentId);
         // Decrement post comments count
-        await Post_1.default.findByIdAndUpdate(comment.post, { $inc: { commentsCount: -1 } });
+        await Post_1.default.findByIdAndUpdate(comment.post, { $inc: { commentsCount: -deletedCount } });
         // Broadcast comment deleted event via sockets
-        (0, socketManager_1.broadcastEvent)('comment:deleted', { postId: comment.post.toString(), commentId });
-        res.json({ message: 'Comment deleted successfully' });
+        (0, socketManager_1.broadcastEvent)('comment:deleted', { postId: comment.post.toString(), commentId, deletedCount });
+        res.json({ message: 'Comment deleted successfully', deletedCount });
     }
     catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });

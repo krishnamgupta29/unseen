@@ -4,6 +4,7 @@ import './globals.css';
 import { AppProvider } from '@/context/AppContext';
 import SecurityOverlay from '@/components/SecurityOverlay';
 import IntroGate from '@/components/IntroGate';
+import DeepLinkRedirect from '@/components/DeepLinkRedirect';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -199,6 +200,7 @@ export default function RootLayout({
       <body className="antialiased min-h-screen flex flex-col bg-[#080016] text-white select-none">
         <SecurityOverlay />
         <AppProvider>
+          <DeepLinkRedirect />
           <IntroGate>
             {children}
           </IntroGate>

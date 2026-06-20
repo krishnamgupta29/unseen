@@ -12,14 +12,36 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
   try {
     const myId = req.user!.id;
     const otherId = String(req.params.userId);
-    const messages = await Message.find({ conversationId: getConversationId(myId, otherId), isDeleted: false })
-      .sort({ createdAt: 1 }).limit(50).lean();
-    const decrypted = messages.map(m => ({
+    const before = req.query.before as string;
+
+    const query: any = {
+      conversationId: getConversationId(myId, otherId),
+      isDeleted: false
+    };
+
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    const reversed = messages.reverse();
+
+    const decrypted = reversed.map(m => ({
       ...m,
       content: (() => { try { return decrypt(m.encryptedContent, m.iv); } catch { return '[Encrypted]'; } })(),
       encryptedContent: undefined, iv: undefined,
     }));
+
     await Message.updateMany({ conversationId: getConversationId(myId, otherId), receiver: myId, isRead: false }, { isRead: true, readAt: new Date() });
+    
+    const { sendToUser } = require('../services/socketManager');
+    sendToUser(myId, 'message:read', { readBy: myId, conversationId: getConversationId(myId, otherId) });
+    sendToUser(otherId, 'message:read', { readBy: myId, conversationId: getConversationId(myId, otherId) });
+
     res.json(decrypted);
   } catch (e: any) { res.status(500).json({ message: 'Server error', error: e.message }); }
 };
@@ -33,7 +55,14 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     const { encryptedContent, iv } = encrypt(content.trim());
     const message = await Message.create({ conversationId: getConversationId(myId, otherId), sender: myId, receiver: otherId, encryptedContent, iv });
     const obj = message.toObject ? message.toObject() : message;
-    res.status(201).json({ ...obj, content, encryptedContent: undefined, iv: undefined });
+    
+    const payload = { ...obj, content, encryptedContent: undefined, iv: undefined };
+    
+    const { sendToUser } = require('../services/socketManager');
+    sendToUser(otherId, 'message:receive', payload);
+    sendToUser(myId, 'message:receive', payload);
+
+    res.status(201).json(payload);
   } catch (e: any) { res.status(500).json({ message: 'Server error', error: e.message }); }
 };
 

@@ -63,6 +63,7 @@ const UserSchema = new mongoose_1.Schema({
     // Feed personalization
     interestTags: [{ type: String }],
     lastSeenAt: { type: Date, default: Date.now },
+    currentSessionId: { type: String, default: null },
 }, { timestamps: true });
 // Indexes for performance
 UserSchema.index({ username: 1 });

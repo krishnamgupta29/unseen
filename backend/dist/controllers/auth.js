@@ -7,13 +7,15 @@ exports.removeEmail = exports.verifyAndLinkEmail = exports.sendEmailOtp = export
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const express_validator_1 = require("express-validator");
+const mongoose_1 = __importDefault(require("mongoose"));
 const https_1 = __importDefault(require("https"));
 const User_1 = __importDefault(require("../models/User"));
 const RefreshToken_1 = __importDefault(require("../models/RefreshToken"));
 const AbuseLog_1 = __importDefault(require("../models/AbuseLog"));
 const encryption_1 = require("../services/encryption");
+const socketManager_1 = require("../services/socketManager");
 const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY_DAYS = 7;
+const REFRESH_TOKEN_EXPIRY_DAYS = 36500; // 100 years for permanent session
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 const sendOtpEmail = async (email, otp) => {
@@ -121,8 +123,8 @@ const AVATAR_COLORS = [
 function randomAvatarColor() {
     return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 }
-function issueTokens(userId, username, role) {
-    const accessToken = jsonwebtoken_1.default.sign({ id: userId, username, role }, process.env.JWT_SECRET || 'secret', { expiresIn: ACCESS_TOKEN_EXPIRY });
+function issueTokens(userId, username, role, sessionId) {
+    const accessToken = jsonwebtoken_1.default.sign({ id: userId, username, role, sessionId }, process.env.JWT_SECRET || 'secret', { expiresIn: ACCESS_TOKEN_EXPIRY });
     const refreshToken = (0, encryption_1.generateSecureToken)(40);
     return { accessToken, refreshToken };
 }
@@ -159,15 +161,17 @@ const signup = async (req, res) => {
             }
         }
         const passwordHash = await bcrypt_1.default.hash(password, 10);
+        const sessionId = new mongoose_1.default.Types.ObjectId().toString();
         const newUser = new User_1.default({
             username: finalUsername,
             displayName: displayName || finalUsername,
             email: email || undefined,
             passwordHash,
             avatarColor: randomAvatarColor(),
+            currentSessionId: sessionId,
         });
         await newUser.save();
-        const { accessToken, refreshToken } = issueTokens(newUser._id.toString(), newUser.username, newUser.role);
+        const { accessToken, refreshToken } = issueTokens(newUser._id.toString(), newUser.username, newUser.role, sessionId);
         const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
         await RefreshToken_1.default.create({
             userId: newUser._id,
@@ -253,12 +257,17 @@ const login = async (req, res) => {
                 message: `Invalid credentials. ${remaining > 0 ? `${remaining} attempts remaining.` : 'Account locked.'}`,
             });
         }
+        // Generate new unique session ID
+        const sessionId = new mongoose_1.default.Types.ObjectId().toString();
+        // Revoke all existing refresh tokens for this user (logs out other devices)
+        await RefreshToken_1.default.deleteMany({ userId: user._id });
         // Reset on success
         user.loginAttempts = 0;
         user.lockUntil = undefined;
         user.lastSeenAt = new Date();
+        user.currentSessionId = sessionId;
         await user.save();
-        const { accessToken, refreshToken } = issueTokens(user._id.toString(), user.username, user.role);
+        const { accessToken, refreshToken } = issueTokens(user._id.toString(), user.username, user.role, sessionId);
         const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
         await RefreshToken_1.default.create({
             userId: user._id,
@@ -267,6 +276,8 @@ const login = async (req, res) => {
             ipAddress: ipHash,
             expiresAt,
         });
+        // Terminate other active sockets in real-time
+        (0, socketManager_1.invalidateUserSessions)(user._id.toString(), sessionId);
         setRefreshCookie(res, refreshToken);
         res.json({
             accessToken,
@@ -307,7 +318,12 @@ const refresh = async (req, res) => {
         }
         // Rotate refresh token
         await stored.deleteOne();
-        const { accessToken, refreshToken: newRefreshToken } = issueTokens(user._id.toString(), user.username, user.role);
+        const sessionId = user.currentSessionId || new mongoose_1.default.Types.ObjectId().toString();
+        if (!user.currentSessionId) {
+            user.currentSessionId = sessionId;
+            await user.save();
+        }
+        const { accessToken, refreshToken: newRefreshToken } = issueTokens(user._id.toString(), user.username, user.role, sessionId);
         const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
         await RefreshToken_1.default.create({
             userId: user._id,

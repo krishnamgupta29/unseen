@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { auth, clearAccessToken, notifications as apiNotifications, users as apiUsers, messages as apiMessages } from '../lib/api';
-import { playNotificationSound } from '../lib/sound';
+import { playNotificationSound, playMessageSound } from '../lib/sound';
 import { getSocket, reconnectSocket, disconnectSocket } from '../lib/socketClient';
 
 export interface User {
@@ -104,17 +104,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setShowSessionModal(true);
   };
 
+  // Sync global unreadMessagesCount from Zustand store conversations
+  useEffect(() => {
+    const { useAppStore } = require('../lib/store');
+    const unsubscribe = useAppStore.subscribe((state: any) => {
+      const totalUnread = state.conversations.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
+      setUnreadMessagesCount(totalUnread);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (currentUser) {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 30000); // 30s poll (reduced from 10s)
+      const interval = setInterval(fetchNotifications, 30000); // 30s poll
       
-      // Separate slower poll for unread message count (60s)
       const fetchUnreadMessages = async () => {
         try {
           const convs = await apiMessages.getConversations();
-          const totalUnread = convs.reduce((sum: number, c: any) => sum + (c.unreadCount || 0), 0);
-          setUnreadMessagesCount(totalUnread);
+          const { useAppStore } = require('../lib/store');
+          useAppStore.getState().setConversationsList(convs);
         } catch (e) {
           // Ignore expected errors
         }
@@ -126,14 +135,71 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const handleNewNotification = () => {
         fetchNotifications();
       };
-      const handleNewMessage = () => {
-        fetchUnreadMessages();
+      
+      const handleNewMessage = (msg: any) => {
+        const { useAppStore } = require('../lib/store');
+        const storeState = useAppStore.getState();
+        
+        const myId = currentUser.id;
+        const otherId = msg.sender === myId ? msg.receiver : msg.sender;
+        
+        // Add message to the thread local cache
+        storeState.addMessageLocal(otherId, msg);
+        
+        if (msg.sender !== myId) {
+          playMessageSound();
+        }
+        
+        // Update conversations preview, lastMessage, and unreadCount
+        const currentConversations = [...storeState.conversations];
+        const convIdx = currentConversations.findIndex(c => c.participant._id === otherId);
+        
+        const isViewingChat = storeState.activeChatId === otherId;
+        if (isViewingChat && msg.sender !== myId) {
+          socket.emit('message:read', { senderId: otherId });
+        }
+        
+        if (convIdx > -1) {
+          const updatedConv = {
+            ...currentConversations[convIdx],
+            lastMessage: msg,
+            unreadCount: isViewingChat || msg.sender === myId
+              ? 0
+              : currentConversations[convIdx].unreadCount + 1
+          };
+          currentConversations.splice(convIdx, 1);
+          currentConversations.unshift(updatedConv);
+          storeState.setConversationsList(currentConversations);
+        } else {
+          // Refresh list to pull fresh participant details
+          fetchUnreadMessages();
+        }
       };
+
+      const handleMessageReadSocket = (data: { readBy: string, conversationId: string }) => {
+        const { useAppStore } = require('../lib/store');
+        const storeState = useAppStore.getState();
+        const otherId = data.readBy;
+        
+        storeState.markConversationAsReadLocal(otherId);
+        
+        // Sync read receipts locally in messages list
+        const thread = storeState.messages[otherId] || [];
+        const updatedThread = thread.map((m: any) => m.receiver === otherId ? { ...m, isRead: true } : m);
+        useAppStore.setState((state: any) => ({
+          messages: {
+            ...state.messages,
+            [otherId]: updatedThread
+          }
+        }));
+      };
+      
       const handleSessionTerminatedSocket = () => {
         handleSessionTerminated();
       };
       
       socket.on('message:receive', handleNewMessage);
+      socket.on('message:read', handleMessageReadSocket);
       socket.on('notification:new', handleNewNotification);
       socket.on('session:terminated', handleSessionTerminatedSocket);
       
@@ -141,6 +207,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         clearInterval(interval);
         clearInterval(msgInterval);
         socket.off('message:receive', handleNewMessage);
+        socket.off('message:read', handleMessageReadSocket);
         socket.off('notification:new', handleNewNotification);
         socket.off('session:terminated', handleSessionTerminatedSocket);
       };
@@ -148,6 +215,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setNotifications([]);
     }
   }, [currentUser]);
+
+  // Issue 6: Deep link redirection on Android mobile browsers
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = window.navigator.userAgent;
+    const isAndroid = /Android/i.test(ua);
+    const isInsideApk = ua.includes('UnseenAndroidAPK') || ua.includes('UnseenAPK');
+
+    if (isAndroid && !isInsideApk) {
+      const hasRedirected = sessionStorage.getItem('app_link_redirected');
+      if (!hasRedirected) {
+        sessionStorage.setItem('app_link_redirected', 'true');
+        const pathname = window.location.pathname;
+        const search = window.location.search;
+        const fallbackUrl = window.location.href;
+        const intentUrl = `intent://${window.location.host}${pathname}${search}#Intent;scheme=https;package=com.example.unseen;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+        window.location.href = intentUrl;
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleUnauthorized = () => {
@@ -161,7 +248,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           path => window.location.pathname === path || (path !== '/' && window.location.pathname.startsWith(path + '/'))
         );
         if (!isPublic) {
-          window.location.href = '/login';
+          window.location.href = '/login?expired=true';
         }
       }
     };
@@ -190,14 +277,41 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         } catch (e) {}
       }
 
-      // Attempt to fetch the current user session
+      // Fast session restore from cache
+      if (typeof window !== 'undefined') {
+        const cachedUser = localStorage.getItem('cached_user');
+        if (cachedUser) {
+          try {
+            setCurrentUser(JSON.parse(cachedUser));
+            setIsLoading(false); // resolve loader instantly
+          } catch (_) {}
+        }
+      }
+
+      // Validate session in background
       auth.getMe()
         .then((user) => {
-          setCurrentUser({ ...user, id: user._id || user.id });
+          const freshUser = { ...user, id: user._id || user.id };
+          setCurrentUser(freshUser);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('cached_user', JSON.stringify(freshUser));
+          }
         })
         .catch(() => {
-          // If it fails (e.g., no token or expired), clear everything
+          clearAccessToken();
           setCurrentUser(null);
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('cached_user');
+            // Clean up caches
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const key = localStorage.key(i);
+              if (key && (key.startsWith('cached_') || key.startsWith('profile:') || key.startsWith('feed:') || key.startsWith('notifications:'))) {
+                localStorage.removeItem(key);
+              }
+            }
+            sessionStorage.clear();
+          }
+          window.location.href = '/login?expired=true';
         })
         .finally(() => {
           setIsLoading(false);
@@ -214,7 +328,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (user: User) => {
-    setCurrentUser({ ...user, id: user._id || user.id });
+    const normalizedUser = { ...user, id: user._id || user.id };
+    setCurrentUser(normalizedUser);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cached_user', JSON.stringify(normalizedUser));
+    }
     reconnectSocket();
   };
 
@@ -227,6 +345,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       clearAccessToken();
       setCurrentUser(null);
       disconnectSocket();
+      
+      // Wipe out all cache
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cached_user');
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('cached_') || key.startsWith('profile:') || key.startsWith('feed:') || key.startsWith('notifications:'))) {
+            localStorage.removeItem(key);
+          }
+        }
+        sessionStorage.clear();
+      }
+      
+      // Reset Zustand store
+      const { useAppStore } = require('../lib/store');
+      useAppStore.setState({
+        posts: {},
+        profiles: {},
+        feeds: {},
+        conversations: [],
+        messages: {},
+        locks: {},
+        activeChatId: null,
+      });
+
+      setUnreadMessagesCount(0);
+      setNotifications([]);
+      
       window.location.href = '/login';
     }
   };

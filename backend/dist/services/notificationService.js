@@ -25,6 +25,12 @@ async function createNotification(recipientId, type, senderId, postId, reason) {
         reason: reason || undefined,
         isRead: false,
     });
-    // Optional: could push via websockets here
+    try {
+        const { sendToUser } = require('./socketManager');
+        sendToUser(recipientId, 'notification:new', notif);
+    }
+    catch (err) {
+        console.error('Failed to emit socket notification:', err);
+    }
     return notif;
 }

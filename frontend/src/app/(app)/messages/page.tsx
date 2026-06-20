@@ -85,9 +85,9 @@ function MessagesContent() {
   );
 
   return (
-    <div className="w-full h-screen flex bg-[#080016] relative overflow-hidden">
+    <div className="w-full h-[calc(100dvh-5rem)] md:h-screen flex bg-[#080016] relative overflow-hidden">
       {/* List Pane */}
-      <div className={`w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col h-full border-r border-unseen-800/30 bg-[#080016] pb-20 md:pb-0 ${
+      <div className={`w-full md:w-[350px] lg:w-[400px] flex-shrink-0 flex flex-col h-full border-r border-unseen-800/30 bg-[#080016] pb-4 md:pb-0 ${
         activeChatUserId ? 'hidden md:flex' : 'flex'
       }`}>
         <Header title="Messages" />

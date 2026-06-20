@@ -95,9 +95,9 @@ function ProfileContent() {
 
   // Load cached profile data on mount to bypass loading spinner
   useEffect(() => {
-    if (isOwnProfile && typeof window !== 'undefined') {
-      const cachedProfile = localStorage.getItem('cached_own_profile');
-      const cachedPosts = localStorage.getItem('cached_own_posts');
+    if (isOwnProfile && typeof window !== 'undefined' && profileIdToFetch) {
+      const cachedProfile = localStorage.getItem(`cached_own_profile:${profileIdToFetch}`);
+      const cachedPosts = localStorage.getItem(`cached_own_posts:${profileIdToFetch}`);
       if (cachedProfile) {
         try {
           const profile = JSON.parse(cachedProfile);
@@ -113,6 +113,10 @@ function ProfileContent() {
           setLoadingProfile(false);
           setLoadingPosts(false);
         } catch (_) {}
+      } else {
+        // Clear loading state if no cache exists to prevent stale displays
+        setLoadingProfile(true);
+        setLoadingPosts(true);
       }
     }
   }, [isOwnProfile, profileIdToFetch]);
@@ -144,24 +148,24 @@ function ProfileContent() {
 
       if (currentUser && data.followerId === currentUser.id) {
         updateCurrentUser({ followingCount: data.followingCount });
-        const cached = localStorage.getItem('cached_own_profile');
+        const cached = localStorage.getItem(`cached_own_profile:${currentUser.id}`);
         if (cached) {
           try {
             const p = JSON.parse(cached);
             p.followingCount = data.followingCount;
-            localStorage.setItem('cached_own_profile', JSON.stringify(p));
+            localStorage.setItem(`cached_own_profile:${currentUser.id}`, JSON.stringify(p));
           } catch (_) {}
         }
       }
       
       if (currentUser && data.followingId === currentUser.id) {
         updateCurrentUser({ followersCount: data.followersCount });
-        const cached = localStorage.getItem('cached_own_profile');
+        const cached = localStorage.getItem(`cached_own_profile:${currentUser.id}`);
         if (cached) {
           try {
             const p = JSON.parse(cached);
             p.followersCount = data.followersCount;
-            localStorage.setItem('cached_own_profile', JSON.stringify(p));
+            localStorage.setItem(`cached_own_profile:${currentUser.id}`, JSON.stringify(p));
           } catch (_) {}
         }
       }
@@ -227,15 +231,15 @@ function ProfileContent() {
       const uData = await users.getProfile(profileIdToFetch);
       useAppStore.getState().setProfile(profileIdToFetch, uData);
       setEditForm({ displayName: uData.displayName || '', bio: uData.bio || '' });
-      if (isOwnProfile && typeof window !== 'undefined') {
-        localStorage.setItem('cached_own_profile', JSON.stringify(uData));
+      if (isOwnProfile && typeof window !== 'undefined' && profileIdToFetch) {
+        localStorage.setItem(`cached_own_profile:${profileIdToFetch}`, JSON.stringify(uData));
       }
       setLoadingProfile(false);
       
       const pData = await users.getPosts(profileIdToFetch);
       useAppStore.getState().setFeed(postsFeedKey, pData.posts);
-      if (isOwnProfile && typeof window !== 'undefined') {
-        localStorage.setItem('cached_own_posts', JSON.stringify(pData.posts));
+      if (isOwnProfile && typeof window !== 'undefined' && profileIdToFetch) {
+        localStorage.setItem(`cached_own_posts:${profileIdToFetch}`, JSON.stringify(pData.posts));
       }
     } catch (e) {
       console.error(e);

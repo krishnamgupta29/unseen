@@ -17,16 +17,16 @@ const validateRequest = (req, res, next) => {
 };
 exports.validateRequest = validateRequest;
 /**
- * XSS protection — strip dangerous HTML from string fields
+ * XSS protection — strip dangerous HTML tags from string fields.
+ * Only encode < and > which are the actual XSS vectors.
+ * Do NOT encode apostrophes (') or slashes (/) as React renders
+ * content as plain text nodes (not innerHTML), so these would
+ * appear as literal &#x27; / &#x2F; text instead of ' and /.
  */
 function sanitizeString(val) {
     return val
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#x27;')
-        .replace(/\//g, '&#x2F;')
-        .replace(/`/g, '&#x60;');
+        .replace(/>/g, '&gt;');
 }
 function sanitizeObject(obj) {
     if (typeof obj === 'string')

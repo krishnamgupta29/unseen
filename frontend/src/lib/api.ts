@@ -272,7 +272,7 @@ export const users = {
 // ─── Messages ──────────────────────────────────────────────────────────────
 export const messages = {
   getConversations: () => apiFetch<any[]>('/messages/conversations'),
-  getMessages: (userId: string) => apiFetch<any[]>(`/messages/${userId}`),
+  getMessages: (userId: string, before?: string) => apiFetch<any[]>(`/messages/${userId}${before ? `?before=${before}` : ''}`),
   send: (userId: string, content: string) =>
     apiFetch<any>(`/messages/${userId}`, {
       method: 'POST',

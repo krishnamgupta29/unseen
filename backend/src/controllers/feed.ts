@@ -9,6 +9,13 @@ import { detectSpamPost } from '../services/moderationAI';
 import { detectFeedMode, buildUserContext, rankPosts } from '../services/feedAlgorithm';
 import { getOnlineUsers, getActiveConnectionCount, broadcastEvent } from '../services/socketManager';
 
+let cachedTrendingTags: any = null;
+let lastTrendingFetch = 0;
+
+export const invalidateTrendingCache = () => {
+  cachedTrendingTags = null;
+};
+
 const PAGE_SIZE = 20;
 
 // ─── GET /api/feed ─────────────────────────────────────────────────────────
@@ -210,6 +217,7 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    invalidateTrendingCache();
     res.json({ message: 'Interaction recorded' });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -219,14 +227,77 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
 // ─── GET /api/feed/trending-tags ─────────────────────────────────────────
 export const getTrendingTags = async (_req: AuthRequest, res: Response) => {
   try {
-    const since = new Date(Date.now() - 24 * 3600000);
-    const result = await Post.aggregate([
-      { $match: { createdAt: { $gte: since }, isDeleted: false, moodTag: { $exists: true, $ne: '' } } },
-      { $group: { _id: '$moodTag', count: { $sum: 1 } } },
+    const now = Date.now();
+    if (cachedTrendingTags && (now - lastTrendingFetch < 30000)) {
+      return res.json(cachedTrendingTags);
+    }
+
+    let since = new Date(Date.now() - 24 * 3600000);
+    let result = await Post.aggregate([
+      { 
+        $match: { 
+          createdAt: { $gte: since }, 
+          isDeleted: false, 
+          moderationStatus: { $ne: 'removed' },
+          moodTag: { $exists: true, $ne: '' } 
+        } 
+      },
+      { 
+        $group: { 
+          _id: '$moodTag', 
+          count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } } 
+        } 
+      },
       { $sort: { count: -1 } },
       { $limit: 5 },
     ]);
-    res.json(result.map(r => ({ tag: r._id, count: r.count })));
+
+    if (result.length === 0) {
+      since = new Date(Date.now() - 7 * 24 * 3600000);
+      result = await Post.aggregate([
+        { 
+          $match: { 
+            createdAt: { $gte: since }, 
+            isDeleted: false, 
+            moderationStatus: { $ne: 'removed' },
+            moodTag: { $exists: true, $ne: '' } 
+          } 
+        },
+        { 
+          $group: { 
+            _id: '$moodTag', 
+            count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } } 
+          } 
+        },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+      ]);
+    }
+
+    if (result.length === 0) {
+      result = await Post.aggregate([
+        { 
+          $match: { 
+            isDeleted: false, 
+            moderationStatus: { $ne: 'removed' },
+            moodTag: { $exists: true, $ne: '' } 
+          } 
+        },
+        { 
+          $group: { 
+            _id: '$moodTag', 
+            count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } } 
+          } 
+        },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+      ]);
+    }
+
+    cachedTrendingTags = result.map(r => ({ tag: r._id, count: r.count }));
+    lastTrendingFetch = now;
+
+    res.json(cachedTrendingTags);
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -258,6 +329,7 @@ export const createPost = async (req: AuthRequest, res: Response) => {
 
     const populated = await post.populate('author', 'username displayName avatarColor');
 
+    invalidateTrendingCache();
     res.status(201).json(populated);
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -328,6 +400,7 @@ export const deletePost = async (req: AuthRequest, res: Response) => {
     // Broadcast post deletion to all clients in real-time
     broadcastEvent('post:deleted', { postId });
     
+    invalidateTrendingCache();
     res.json({ message: 'Post permanently deleted' });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });

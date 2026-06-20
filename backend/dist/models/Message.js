@@ -53,6 +53,8 @@ const MessageSchema = new mongoose_1.Schema({
     deletedAt: { type: Date },
 }, { timestamps: true });
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
+MessageSchema.index({ conversationId: 1, createdAt: 1 });
 MessageSchema.index({ sender: 1 });
 MessageSchema.index({ receiver: 1 });
+MessageSchema.index({ receiver: 1, readAt: 1 });
 exports.default = mongoose_1.default.model('Message', MessageSchema);

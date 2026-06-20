@@ -42,4 +42,8 @@ const CommentSchema = new mongoose_1.Schema({
     likesCount: { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },
 }, { timestamps: true });
+// Indexes for performance and quick threaded lookups
+CommentSchema.index({ post: 1, isDeleted: 1, createdAt: -1 });
+CommentSchema.index({ parentComment: 1 });
+CommentSchema.index({ author: 1 });
 exports.default = mongoose_1.default.model('Comment', CommentSchema);

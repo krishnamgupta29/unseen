@@ -36,6 +36,7 @@ export interface Message {
   content: string;
   createdAt: string;
   reactions?: { userId: string; emoji: string }[];
+  isOptimistic?: boolean;
 }
 
 export interface Conversation {
@@ -52,6 +53,7 @@ interface AppStoreState {
   feeds: Record<string, string[]>; // feedName -> array of postIds
   conversations: Conversation[];
   messages: Record<string, Message[]>; // participantId -> messages
+  activeChatId: string | null;
   
   // Pending locks to prevent rapid repeated clicks
   locks: Record<string, boolean>;
@@ -75,6 +77,9 @@ interface AppStoreState {
   setMessagesList: (participantId: string, messagesList: any[]) => void;
   addMessageLocal: (participantId: string, message: Message) => void;
   updateMessageLocal: (participantId: string, messageId: string, updates: Partial<Message>) => void;
+  markConversationAsReadLocal: (participantId: string) => void;
+  prependMessagesLocal: (participantId: string, olderMessages: Message[]) => void;
+  setActiveChatId: (id: string | null) => void;
 
   // Optimistic Operations
   toggleLikePost: (postId: string) => Promise<void>;
@@ -89,6 +94,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   conversations: [],
   messages: {},
   locks: {},
+  activeChatId: null,
 
   // Set individual post to cache
   setPost: (post) => {
@@ -225,16 +231,62 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
     }));
   },
 
+  setActiveChatId: (id) => set({ activeChatId: id }),
+
   // Add a message locally
   addMessageLocal: (participantId, message) => {
     set((state) => {
       const existing = state.messages[participantId] || [];
       if (existing.some(m => m._id === message._id)) return {};
+      
+      // If it's a real message (not optimistic), try to replace matching optimistic draft
+      if (!message.isOptimistic) {
+        const optIdx = existing.findIndex(m => m.isOptimistic && m.content === message.content && m.sender === message.sender);
+        if (optIdx > -1) {
+          const updated = [...existing];
+          updated[optIdx] = message;
+          return {
+            messages: {
+              ...state.messages,
+              [participantId]: updated
+            }
+          };
+        }
+      }
+
       return {
         messages: {
           ...state.messages,
           [participantId]: [...existing, message]
         }
+      };
+    });
+  },
+
+  // Mark a conversation as read locally
+  markConversationAsReadLocal: (participantId) => {
+    set((state) => {
+      const updatedConvs = state.conversations.map((c) => {
+        if (c.participant._id === participantId) {
+          return { ...c, unreadCount: 0 };
+        }
+        return c;
+      });
+      return { conversations: updatedConvs };
+    });
+  },
+
+  // Prepend older messages
+  prependMessagesLocal: (participantId, olderMessages) => {
+    set((state) => {
+      const existing = state.messages[participantId] || [];
+      const existingIds = new Set(existing.map((m) => m._id));
+      const filtered = olderMessages.filter((m) => !existingIds.has(m._id));
+      return {
+        messages: {
+          ...state.messages,
+          [participantId]: [...filtered, ...existing],
+        },
       };
     });
   },

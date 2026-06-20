@@ -40,4 +40,7 @@ const FollowerSchema = new mongoose_1.Schema({
 }, { timestamps: true });
 // Prevent duplicate follows
 FollowerSchema.index({ follower: 1, following: 1 }, { unique: true });
+// Single-field indexes for fast countDocuments lookups on profile pages
+FollowerSchema.index({ following: 1 });
+FollowerSchema.index({ follower: 1 });
 exports.default = mongoose_1.default.model('Follower', FollowerSchema);

@@ -122,9 +122,12 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
   const [deletingChat, setDeletingChat] = useState(false);
   const [isTyping, setIsTyping] = useState(false); // remote user is typing
   const [localTyping, setLocalTyping] = useState(false); // we are typing
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatMenuRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFirstLoad = useRef(true);
 
@@ -157,6 +160,10 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
   useEffect(() => {
     if (!participantId || !currentUser) return;
     
+    const store = useAppStore.getState();
+    store.setActiveChatId(participantId);
+    store.markConversationAsReadLocal(participantId);
+    
     // Load cached messages instantly, then fetch in the background
     loadMessages();
     const interval = setInterval(loadMessages, 15000); // 15s poll fallback
@@ -170,29 +177,14 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
     const handleTypingStop = (data: { userId: string }) => {
       if (data.userId === participantId) setIsTyping(false);
     };
-    socket.on('typing:start', handleTypingStart);
-    socket.on('typing:stop', handleTypingStop);
-    
-    const handleNewMessage = (msg: any) => {
-      if (msg.sender === participantId || msg.receiver === participantId) {
-        useAppStore.getState().addMessageLocal(participantId, msg);
-        if (msg.sender !== currentUser.id) {
-          playMessageSound();
-        }
-        // Mark message as read
-        if (msg.sender === participantId) {
-          socket.emit('message:read', { senderId: participantId });
-        }
-      }
-    };
-    
     const handleReactionAdd = (data: { messageId: string; emoji: string; userId: string }) => {
       useAppStore.getState().updateMessageLocal(participantId, data.messageId, {
         reactions: [{ userId: data.userId, emoji: data.emoji }]
       });
     };
 
-    socket.on('message:receive', handleNewMessage);
+    socket.on('typing:start', handleTypingStart);
+    socket.on('typing:stop', handleTypingStop);
     socket.on('reaction:add', handleReactionAdd);
 
     // Read receipt send on open
@@ -200,10 +192,10 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
 
     return () => {
       clearInterval(interval);
-      socket.off('message:receive', handleNewMessage);
-      socket.off('reaction:add', handleReactionAdd);
+      store.setActiveChatId(null);
       socket.off('typing:start', handleTypingStart);
       socket.off('typing:stop', handleTypingStop);
+      socket.off('reaction:add', handleReactionAdd);
     };
   }, [participantId, currentUser]);
 
@@ -220,6 +212,7 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
       }
       
       useAppStore.getState().setMessagesList(participantId, data);
+      setHasMore(data.length === 50);
     } catch (e: any) {
       if (e?.message !== 'Token expired.' && e?.message !== 'Authentication required.' && e?.message !== 'Invalid token.' && e?.message !== 'Unauthorized') {
         console.error('Failed to load message thread', e);
@@ -258,6 +251,34 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
         socket.emit('typing:stop', { receiverId: participantId });
       }
     }, 1500);
+  };
+
+  const handleScroll = async () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    if (container.scrollTop < 10 && !loadingMore && hasMore && messages.length > 0) {
+      setLoadingMore(true);
+      const previousScrollHeight = container.scrollHeight;
+      try {
+        const oldestMessage = messages[0];
+        const data = await apiMessages.getMessages(participantId, oldestMessage.createdAt);
+        if (data.length > 0) {
+          useAppStore.getState().prependMessagesLocal(participantId, data);
+          setHasMore(data.length === 50);
+          setTimeout(() => {
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight - previousScrollHeight;
+            }
+          }, 0);
+        } else {
+          setHasMore(false);
+        }
+      } catch (e) {
+        console.error("Failed to load older messages:", e);
+      } finally {
+        setLoadingMore(false);
+      }
+    }
   };
 
   const handleSend = async () => {
@@ -422,7 +443,11 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
       </div>
 
       {/* GPU Accelerated Chat Message Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3.5 chat-pattern transform-gpu">
+      <div 
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-3.5 chat-pattern transform-gpu"
+      >
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full space-y-3 text-gray-500">
             <Loader2 className="w-8 h-8 animate-spin text-unseen-400" />
@@ -443,7 +468,7 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
               <div key={m._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${hasReactions ? 'mb-3.5' : 'mb-0.5'}`}>
                 <div 
                   onDoubleClick={() => handleMessageDoubleClick(m._id)}
-                  className={`max-w-[75%] rounded-2xl px-4 py-2.5 shadow-md relative select-none ${
+                  className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-2.5 shadow-md relative select-none ${
                     isMe 
                       ? 'bg-gradient-to-r from-unseen-600 to-unseen-700 text-white rounded-tr-sm' 
                       : 'bg-unseen-900/60 border border-unseen-800/40 text-gray-200 rounded-tl-sm'
@@ -476,12 +501,12 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
                         .trim();
                       return (
                         <div className="space-y-2">
-                          {cleanContent && <p className="text-sm font-inter leading-relaxed break-words">{cleanContent}</p>}
+                          {cleanContent && <p className="text-sm font-inter leading-relaxed break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{cleanContent}</p>}
                           <SharedPostPreview postId={postId} onClick={() => router.push(`/post/${postId}`)} />
                         </div>
                       );
                     }
-                    return <p className="text-sm font-inter leading-relaxed break-words">{m.content}</p>;
+                    return <p className="text-sm font-inter leading-relaxed break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{m.content}</p>;
                   })()}
                   
                   <span className="block text-[8px] text-white/40 mt-1.5 text-right font-mono">
@@ -505,6 +530,11 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
             );
           })
         )}
+        {loadingMore && (
+          <div className="flex justify-center py-2 shrink-0">
+            <Loader2 className="w-5 h-5 animate-spin text-unseen-400" />
+          </div>
+        )}
         {/* Typing Indicator */}
         <AnimatePresence>
           {isTyping && (
@@ -527,8 +557,8 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
         <div ref={chatEndRef} />
       </div>
 
-      {/* GPU Accelerated DM Input Panel, perfectly offset for safe area at bottom */}
-      <div className="p-4 border-t border-unseen-800/30 bg-[#080016]/95 pb-[calc(1.2rem+env(safe-area-inset-bottom))] shrink-0">
+      {/* GPU Accelerated DM Input Panel */}
+      <div className="p-4 border-t border-unseen-800/30 bg-[#080016]/95 pb-4 shrink-0">
         <div className="flex items-center space-x-2 bg-unseen-900/40 border border-unseen-800 rounded-full p-1.5 pl-4 shadow-inner">
           <input 
             type="text" 

@@ -113,10 +113,7 @@ export default function ExplorePage() {
                   <div className="w-14 h-14 rounded-full bg-unseen-900/40 flex items-center justify-center mb-4 border border-unseen-800/30 shadow-[0_0_12px_rgba(249,115,22,0.1)]">
                     <Flame className="w-6 h-6 text-gray-600 opacity-60" />
                   </div>
-                  <p className="text-sm font-semibold text-gray-200">No trending vibes yet</p>
-                  <p className="text-xs mt-1.5 max-w-xs text-gray-500 leading-relaxed">
-                    No trending topics yet. Once hashtags start appearing in posts, they will show up here.
-                  </p>
+                  <p className="text-sm font-semibold text-gray-200">No trending posts yet — explore the feed and start the conversation.</p>
                 </div>
               ) : (
                 <div className="space-y-4">

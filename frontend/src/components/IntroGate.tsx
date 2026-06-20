@@ -36,9 +36,9 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsHydrated(true);
 
-    // Check if intro has played in the current tab session
-    const sessionPlayed = sessionStorage.getItem('introPlayedSession');
-    if (!sessionPlayed) {
+    // Check if intro has played
+    const introPlayed = localStorage.getItem('introPlayed');
+    if (!introPlayed) {
       setShowIntro(true);
     }
 
@@ -154,7 +154,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   }
 
   const handleIntroComplete = () => {
-    sessionStorage.setItem('introPlayedSession', 'true');
+    localStorage.setItem('introPlayed', 'true');
     setShowIntro(false);
   };
 

@@ -14,9 +14,20 @@ const getMessages = async (req, res) => {
     try {
         const myId = req.user.id;
         const otherId = String(req.params.userId);
-        const messages = await Message_1.default.find({ conversationId: getConversationId(myId, otherId), isDeleted: false })
-            .sort({ createdAt: 1 }).limit(100).lean();
-        const decrypted = messages.map(m => ({
+        const before = req.query.before;
+        const query = {
+            conversationId: getConversationId(myId, otherId),
+            isDeleted: false
+        };
+        if (before) {
+            query.createdAt = { $lt: new Date(before) };
+        }
+        const messages = await Message_1.default.find(query)
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .lean();
+        const reversed = messages.reverse();
+        const decrypted = reversed.map(m => ({
             ...m,
             content: (() => { try {
                 return (0, encryption_1.decrypt)(m.encryptedContent, m.iv);
@@ -27,6 +38,9 @@ const getMessages = async (req, res) => {
             encryptedContent: undefined, iv: undefined,
         }));
         await Message_1.default.updateMany({ conversationId: getConversationId(myId, otherId), receiver: myId, isRead: false }, { isRead: true, readAt: new Date() });
+        const { sendToUser } = require('../services/socketManager');
+        sendToUser(myId, 'message:read', { readBy: myId, conversationId: getConversationId(myId, otherId) });
+        sendToUser(otherId, 'message:read', { readBy: myId, conversationId: getConversationId(myId, otherId) });
         res.json(decrypted);
     }
     catch (e) {
@@ -44,7 +58,11 @@ const sendMessage = async (req, res) => {
         const { encryptedContent, iv } = (0, encryption_1.encrypt)(content.trim());
         const message = await Message_1.default.create({ conversationId: getConversationId(myId, otherId), sender: myId, receiver: otherId, encryptedContent, iv });
         const obj = message.toObject ? message.toObject() : message;
-        res.status(201).json({ ...obj, content, encryptedContent: undefined, iv: undefined });
+        const payload = { ...obj, content, encryptedContent: undefined, iv: undefined };
+        const { sendToUser } = require('../services/socketManager');
+        sendToUser(otherId, 'message:receive', payload);
+        sendToUser(myId, 'message:receive', payload);
+        res.status(201).json(payload);
     }
     catch (e) {
         res.status(500).json({ message: 'Server error', error: e.message });
@@ -97,6 +115,8 @@ const getConversations = async (req, res) => {
                     unread: { $sum: { $cond: [{ $and: [{ $eq: ['$receiver', myId] }, { $eq: ['$isRead', false] }] }, 1, 0] } }
                 }
             },
+            { $sort: { 'lastMessage.createdAt': -1 } },
+            { $limit: 50 },
             { $lookup: {
                     from: 'users',
                     localField: 'lastMessage.sender',
@@ -111,10 +131,8 @@ const getConversations = async (req, res) => {
                     as: 'receiverInfo'
                 }
             },
-            { $unwind: '$senderInfo' },
-            { $unwind: '$receiverInfo' },
-            { $sort: { 'lastMessage.createdAt': -1 } },
-            { $limit: 50 },
+            { $unwind: { path: '$senderInfo', preserveNullAndEmptyArrays: true } },
+            { $unwind: { path: '$receiverInfo', preserveNullAndEmptyArrays: true } },
         ]);
         const decrypted = latest.map(c => {
             let content = '[Encrypted]';
@@ -123,6 +141,9 @@ const getConversations = async (req, res) => {
             }
             catch (e) { }
             const otherUser = String(c.lastMessage.sender) === String(myId) ? c.receiverInfo : c.senderInfo;
+            // Skip conversations where the other user was deleted
+            if (!otherUser)
+                return null;
             return {
                 conversationId: c._id,
                 unreadCount: c.unread,
@@ -140,7 +161,7 @@ const getConversations = async (req, res) => {
                 }
             };
         });
-        res.json(decrypted);
+        res.json(decrypted.filter(Boolean));
     }
     catch (e) {
         res.status(500).json({ message: 'Server error', error: e.message });

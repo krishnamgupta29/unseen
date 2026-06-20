@@ -8,11 +8,14 @@ exports.getOnlineUsers = getOnlineUsers;
 exports.getActiveConnectionCount = getActiveConnectionCount;
 exports.isUserOnline = isUserOnline;
 exports.broadcastEvent = broadcastEvent;
+exports.sendToUser = sendToUser;
+exports.invalidateUserSessions = invalidateUserSessions;
 const socket_io_1 = require("socket.io");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const encryption_1 = require("../services/encryption");
 const Post_1 = __importDefault(require("../models/Post"));
 const User_1 = __importDefault(require("../models/User"));
+const Message_1 = __importDefault(require("../models/Message"));
 const connectedUsers = new Map();
 let ioInstance = null;
 function initSocket(server) {
@@ -52,13 +55,17 @@ function initSocket(server) {
     });
     ioInstance = io;
     // ── Auth middleware for Socket.io ─────────────────────────────────────
-    io.use((socket, next) => {
+    io.use(async (socket, next) => {
         const token = socket.handshake.auth?.token ||
             socket.handshake.headers?.authorization?.split(' ')[1];
         if (!token)
             return next(new Error('Authentication required'));
         try {
             const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET || 'secret');
+            const user = await User_1.default.findById(decoded.id).select('currentSessionId isActive isSuspended').lean();
+            if (!user || !user.isActive || user.isSuspended || decoded.sessionId !== user.currentSessionId) {
+                return next(new Error('Session invalidated or inactive account'));
+            }
             socket.user = decoded;
             next();
         }
@@ -102,8 +109,18 @@ function initSocket(server) {
             io.to(`user:${data.receiverId}`).emit('typing:stop', { userId: user.id });
         });
         // ── Read receipts ──────────────────────────────────────────────────
-        socket.on('message:read', (data) => {
-            io.to(`user:${data.senderId}`).emit('message:read', { readBy: user.id });
+        socket.on('message:read', async (data) => {
+            const myId = user.id;
+            const otherId = data.senderId;
+            const conversationId = [myId, otherId].sort().join('_');
+            try {
+                await Message_1.default.updateMany({ conversationId, receiver: myId, isRead: false }, { isRead: true, readAt: new Date() });
+                io.to(`user:${otherId}`).emit('message:read', { readBy: myId, conversationId });
+                io.to(`user:${myId}`).emit('message:read', { readBy: myId, conversationId });
+            }
+            catch (e) {
+                console.error('Failed to mark messages as read via socket:', e);
+            }
         });
         // ── Reactions ─────────────────────────────────────────────────────
         socket.on('reaction:add', (data) => {
@@ -119,7 +136,7 @@ function initSocket(server) {
             socket.broadcast.emit('user:offline', { userId: user.id });
         });
     });
-    // Broadcast network stats & trending vibes every 5 seconds
+    // Broadcast network stats & trending vibes every 60 seconds (reduced from 5s to cut DB load)
     setInterval(async () => {
         try {
             const totalUsers = await User_1.default.countDocuments();
@@ -143,7 +160,7 @@ function initSocket(server) {
         catch (e) {
             console.error('Error broadcasting network stats:', e);
         }
-    }, 5000);
+    }, 60000);
     return io;
 }
 function getOnlineUsers() {
@@ -158,5 +175,31 @@ function isUserOnline(userId) {
 function broadcastEvent(event, data) {
     if (ioInstance) {
         ioInstance.emit(event, data);
+    }
+}
+function sendToUser(userId, event, data) {
+    if (ioInstance) {
+        ioInstance.to(`user:${userId}`).emit(event, data);
+    }
+}
+function invalidateUserSessions(userId, activeSessionId) {
+    if (!ioInstance)
+        return;
+    const roomName = `user:${userId}`;
+    const sockets = ioInstance.sockets.adapter.rooms.get(roomName);
+    if (sockets) {
+        const socketIds = Array.from(sockets);
+        for (const socketId of socketIds) {
+            const socket = ioInstance.sockets.sockets.get(socketId);
+            if (socket) {
+                const socketUser = socket.user;
+                if (socketUser && socketUser.sessionId !== activeSessionId) {
+                    socket.emit('session:terminated', {
+                        message: 'Your account has been logged in on another device. This session has been ended for security reasons.'
+                    });
+                    socket.disconnect(true);
+                }
+            }
+        }
     }
 }

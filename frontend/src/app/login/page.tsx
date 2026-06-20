@@ -2,22 +2,28 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
 import { auth, setAccessToken } from '@/lib/api';
 import { useAppContext } from '@/context/AppContext';
 
-
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const { login } = useAppContext();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [shouldAnimate, setShouldAnimate] = useState(false);
+
+  useEffect(() => {
+    if (searchParams?.get('expired') === 'true') {
+      setError('Your session has expired. Please log in again.');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Disable heavy blurred orb animations on mobile/tablet to ensure butter-smooth performance
@@ -184,5 +190,13 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#080016]" />}>
+      <LoginContent />
+    </Suspense>
   );
 }

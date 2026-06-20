@@ -146,7 +146,7 @@ export default function RightPanel() {
         </div>
         
         {trendingTags.length === 0 ? (
-          <p className="text-gray-500 text-sm">No trending vibes yet.</p>
+          <p className="text-gray-500 text-sm">No trending posts yet — explore the feed and start the conversation.</p>
         ) : (
           <div className="space-y-4">
             {trendingTags.map((t, i) => (

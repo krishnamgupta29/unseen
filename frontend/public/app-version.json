@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "url": "/unseen.apk",
-  "releaseNotes": "Introduced premium splash screens, seamless auto-login check, single-device session enforcement, and local deep-link mapping."
+  "releaseNotes": "Fixed a bug where the update prompt was not displaying when the logo intro animation was active. Optimized layout performance and SEO metadata."
 }

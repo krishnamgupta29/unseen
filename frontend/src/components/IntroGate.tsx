@@ -192,7 +192,7 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         {children}
       </div>
 
-      {showUpdateModal && (
+      {!showIntro && showUpdateModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
           <div className="relative w-full max-w-sm glass bg-[#0a0216]/90 border border-unseen-800/60 rounded-3xl p-6 md:p-8 z-10 shadow-[0_0_50px_rgba(157,78,221,0.25)] text-center">

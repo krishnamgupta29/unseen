@@ -30,6 +30,7 @@ interface AppState {
   users: any[];
   unreadMessagesCount: number;
   setUnreadMessagesCount: React.Dispatch<React.SetStateAction<number>>;
+  isMessagesSynced: boolean;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -52,6 +53,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [isMessagesSynced, setIsMessagesSynced] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
   const isSessionTerminated = useRef(false);
 
@@ -136,6 +138,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           const convs = await apiMessages.getConversations();
           const { useAppStore } = require('../lib/store');
           useAppStore.getState().setConversationsList(convs);
+          setIsMessagesSynced(true);
         } catch (e) {
           // Ignore expected errors
         }
@@ -160,6 +163,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const myId = currentUser.id;
         const otherId = msg.sender === myId ? msg.receiver : msg.sender;
         
+        // 1. Prevent duplicate message counts by checking thread local messages cache
+        const threadMessages = storeState.messages[otherId] || [];
+        if (threadMessages.some((m: any) => m._id === msg._id)) {
+          return;
+        }
+
+        // 2. Prevent duplicate message counts by checking conversation preview lastMessage
+        const currentConversations = [...storeState.conversations];
+        const convIdx = currentConversations.findIndex(c => c.participant._id === otherId);
+        if (convIdx > -1) {
+          const conv = currentConversations[convIdx];
+          if (conv.lastMessage && conv.lastMessage._id === msg._id) {
+            return;
+          }
+        }
+        
         // Add message to the thread local cache
         storeState.addMessageLocal(otherId, msg);
         
@@ -168,9 +187,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
         
         // Update conversations preview, lastMessage, and unreadCount
-        const currentConversations = [...storeState.conversations];
-        const convIdx = currentConversations.findIndex(c => c.participant._id === otherId);
-        
         const isViewingChat = storeState.activeChatId === otherId;
         if (isViewingChat && msg.sender !== myId) {
           socket.emit('message:read', { senderId: otherId });
@@ -180,9 +196,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           const updatedConv = {
             ...currentConversations[convIdx],
             lastMessage: msg,
-            unreadCount: isViewingChat || msg.sender === myId
+            unreadCount: isViewingChat
               ? 0
-              : currentConversations[convIdx].unreadCount + 1
+              : (msg.sender === myId ? currentConversations[convIdx].unreadCount : currentConversations[convIdx].unreadCount + 1)
           };
           currentConversations.splice(convIdx, 1);
           currentConversations.unshift(updatedConv);
@@ -196,19 +212,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const handleMessageReadSocket = (data: { readBy: string, conversationId: string }) => {
         const storeState = useAppStore.getState();
         if (storeState.sessionVersion !== boundSessionVersion) return;
-        const otherId = data.readBy;
         
-        storeState.markConversationAsReadLocal(otherId);
+        const myId = currentUser.id;
+        const otherId = data.conversationId.split('_').find((id: string) => id !== myId);
+        if (!otherId) return;
         
-        // Sync read receipts locally in messages list
-        const thread = storeState.messages[otherId] || [];
-        const updatedThread = thread.map((m: any) => m.receiver === otherId ? { ...m, isRead: true } : m);
-        useAppStore.setState((state: any) => ({
-          messages: {
-            ...state.messages,
-            [otherId]: updatedThread
-          }
-        }));
+        if (data.readBy === myId) {
+          // We read their messages
+          storeState.markConversationAsReadLocal(otherId);
+        } else {
+          // They read our messages: sync read receipts in message thread
+          const thread = storeState.messages[otherId] || [];
+          const updatedThread = thread.map((m: any) => m.receiver === otherId ? { ...m, isRead: true } : m);
+          useAppStore.setState((state: any) => ({
+            messages: {
+              ...state.messages,
+              [otherId]: updatedThread
+            }
+          }));
+        }
       };
       
       const handleSessionTerminatedSocket = () => {
@@ -404,6 +426,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     useAppStore.getState().clearAllUserState();
     useAppStore.getState().incrementSession();
 
+    setIsMessagesSynced(false);
     const normalizedUser = { ...user, id: user._id || user.id };
     setCurrentUser(normalizedUser);
     if (typeof window !== 'undefined') {
@@ -440,6 +463,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       useAppStore.getState().incrementSession();
 
       setUnreadMessagesCount(0);
+      setIsMessagesSynced(false);
       setNotifications([]);
       
       window.location.href = '/login';
@@ -451,7 +475,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AppContext.Provider value={{ currentUser, isLoading, login, logout, updateCurrentUser, notifications, markNotificationsRead, users, unreadMessagesCount, setUnreadMessagesCount }}>
+    <AppContext.Provider value={{ currentUser, isLoading, login, logout, updateCurrentUser, notifications, markNotificationsRead, users, unreadMessagesCount, setUnreadMessagesCount, isMessagesSynced }}>
       {children}
 
       {showSessionModal && (

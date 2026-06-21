@@ -5,8 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Home, Compass, MessageSquare, User, Bell, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppContext } from '@/context/AppContext';
-import { getSocket } from '@/lib/socketClient';
-import { useState, useEffect } from 'react';
 
 const NAV_ITEMS = [
   { href: '/feed', icon: <Home className="w-6 h-6" />, label: 'Feed' },
@@ -19,32 +17,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { unreadMessagesCount, setUnreadMessagesCount } = useAppContext();
-  const [localUnread, setLocalUnread] = useState(false);
-
-  useEffect(() => {
-    const socket = getSocket();
-    const handleNewActivity = () => {
-      if (pathname !== '/messages') {
-        setLocalUnread(true);
-      }
-    };
-    
-    socket.on('message:receive', handleNewActivity);
-    socket.on('reaction:add', handleNewActivity);
-    
-    return () => {
-      socket.off('message:receive', handleNewActivity);
-      socket.off('reaction:add', handleNewActivity);
-    };
-  }, [pathname]);
-
-  useEffect(() => {
-    if (pathname === '/messages') {
-      setLocalUnread(false);
-      setUnreadMessagesCount(0);
-    }
-  }, [pathname, setUnreadMessagesCount]);
+  const { unreadMessagesCount, isMessagesSynced } = useAppContext();
 
   return (
     <>
@@ -61,7 +34,7 @@ export default function Sidebar() {
               ? (pathname === '/feed' || pathname === '/')
               : pathname.startsWith(item.href);
             const isMessages = item.href === '/messages';
-            const showDot = isMessages && (unreadMessagesCount > 0 || localUnread) && !isActive;
+            const showDot = isMessages && isMessagesSynced && unreadMessagesCount > 0 && !isActive;
             return (
               <Link
                 key={item.href}
@@ -105,7 +78,7 @@ export default function Sidebar() {
             ? (pathname === '/feed' || pathname === '/')
             : pathname.startsWith(item.href);
           const isMessages = item.href === '/messages';
-          const showDot = isMessages && (unreadMessagesCount > 0 || localUnread) && !isActive;
+          const showDot = isMessages && isMessagesSynced && unreadMessagesCount > 0 && !isActive;
           return (
             <Link
               key={item.href}

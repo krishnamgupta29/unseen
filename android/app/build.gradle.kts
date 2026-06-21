@@ -9,8 +9,8 @@ android {
         applicationId = "com.example.unseen"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     buildTypes {
@@ -26,7 +26,7 @@ android {
     buildFeatures {
       compose = false
       aidl = false
-      buildConfig = false
+      buildConfig = true
       shaders = false
     }
 

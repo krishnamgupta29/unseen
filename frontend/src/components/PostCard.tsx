@@ -397,12 +397,12 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     }
   };
 
-  const toggleLike = async () => {
-    await useAppStore.getState().toggleLikePost(post._id);
+  const toggleLike = () => {
+    useAppStore.getState().toggleLikePost(post._id);
   };
 
-  const toggleSave = async () => {
-    await useAppStore.getState().toggleSavePost(post._id);
+  const toggleSave = () => {
+    useAppStore.getState().toggleSavePost(post._id);
   };
 
   const handleToggleFollow = async () => {

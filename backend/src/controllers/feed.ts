@@ -139,22 +139,33 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
     // Toggle logic for likes and saves
     if (interactionType === 'like' || interactionType === 'save') {
       const existing = await UserInteraction.findOne({ userId, postId, interactionType });
+      const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
       
       if (existing) {
         // Unlike or Unsave
         await UserInteraction.deleteOne({ _id: existing._id });
-        const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
-        // Single atomic update: decrement count + recalculate engagement
-        const updated = await Post.findByIdAndUpdate(
+        // Single atomic update: decrement count
+        let updated = await Post.findByIdAndUpdate(
           postId,
           { $inc: { [countField]: -1 } },
           { new: true }
         );
         if (updated) {
+          if ((updated as any)[countField] < 0) {
+            (updated as any)[countField] = 0;
+          }
           const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
             (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
           updated.engagementScore = E;
           await updated.save();
+
+          // Broadcast updated counts
+          broadcastEvent(`post:${interactionType}d`, {
+            postId,
+            likesCount: updated.likesCount,
+            savesCount: updated.savesCount,
+            userId
+          });
         }
       } else {
         // Like or Save
@@ -167,18 +178,28 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
           hashtags: post.hashtags,
           readDurationMs: readDurationMs || 0,
         });
-        const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
-        // Single atomic update: increment count + recalculate engagement
-        const updated = await Post.findByIdAndUpdate(
+        // Single atomic update: increment count
+        let updated = await Post.findByIdAndUpdate(
           postId,
           { $inc: { [countField]: 1 } },
           { new: true }
         );
         if (updated) {
+          if ((updated as any)[countField] < 0) {
+            (updated as any)[countField] = 0;
+          }
           const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
             (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
           updated.engagementScore = E;
           await updated.save();
+
+          // Broadcast updated counts
+          broadcastEvent(`post:${interactionType}d`, {
+            postId,
+            likesCount: updated.likesCount,
+            savesCount: updated.savesCount,
+            userId
+          });
         }
         if (interactionType === 'like') {
           // Create notification for like (fire and forget)
@@ -209,6 +230,9 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
           { new: true }
         );
         if (updated) {
+          if ((updated as any)[countField] < 0) {
+            (updated as any)[countField] = 0;
+          }
           const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
             (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
           updated.engagementScore = E;
@@ -217,8 +241,18 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const isLiked = await UserInteraction.exists({ userId, postId, interactionType: 'like' });
+    const isSaved = await UserInteraction.exists({ userId, postId, interactionType: 'save' });
+    const freshPost = await Post.findById(postId);
+
     invalidateTrendingCache();
-    res.json({ message: 'Interaction recorded' });
+    res.json({
+      message: 'Interaction recorded',
+      isLiked: !!isLiked,
+      isSaved: !!isSaved,
+      likesCount: freshPost ? freshPost.likesCount : 0,
+      savesCount: freshPost ? freshPost.savesCount : 0
+    });
   } catch (error: any) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -242,10 +276,15 @@ export const getTrendingTags = async (_req: AuthRequest, res: Response) => {
           moodTag: { $exists: true, $ne: '' } 
         } 
       },
+      {
+        $addFields: {
+          normalizedMoodTag: { $toLower: { $trim: { input: '$moodTag' } } }
+        }
+      },
       { 
         $group: { 
-          _id: '$moodTag', 
-          count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } } 
+          _id: '$normalizedMoodTag', 
+          count: { $sum: 1 } 
         } 
       },
       { $sort: { count: -1 } },
@@ -263,10 +302,15 @@ export const getTrendingTags = async (_req: AuthRequest, res: Response) => {
             moodTag: { $exists: true, $ne: '' } 
           } 
         },
+        {
+          $addFields: {
+            normalizedMoodTag: { $toLower: { $trim: { input: '$moodTag' } } }
+          }
+        },
         { 
           $group: { 
-            _id: '$moodTag', 
-            count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } } 
+            _id: '$normalizedMoodTag', 
+            count: { $sum: 1 } 
           } 
         },
         { $sort: { count: -1 } },
@@ -283,10 +327,15 @@ export const getTrendingTags = async (_req: AuthRequest, res: Response) => {
             moodTag: { $exists: true, $ne: '' } 
           } 
         },
+        {
+          $addFields: {
+            normalizedMoodTag: { $toLower: { $trim: { input: '$moodTag' } } }
+          }
+        },
         { 
           $group: { 
-            _id: '$moodTag', 
-            count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } } 
+            _id: '$normalizedMoodTag', 
+            count: { $sum: 1 } 
           } 
         },
         { $sort: { count: -1 } },
@@ -314,13 +363,17 @@ export const createPost = async (req: AuthRequest, res: Response) => {
       return res.status(429).json({ message: 'You are posting too fast. Please wait.' });
     }
 
-    // Extract hashtags
-    const hashtags = (content.match(/#(\w+)/g) || []).map((t: string) => t.slice(1).toLowerCase());
+    // Extract and deduplicate hashtags
+    const hashtags: string[] = Array.from(new Set<string>(
+      (content.match(/#(\w+)/g) || []).map((t: string) => t.slice(1).toLowerCase())
+    ));
+
+    const normalizedMoodTag = moodTag ? moodTag.trim().toLowerCase() : undefined;
 
     const post = await Post.create({
       author: userId,
       content,
-      moodTag: moodTag || undefined,
+      moodTag: normalizedMoodTag,
       hashtags,
       toxicityScore: modResult?.toxicityScore || 0,
       isFlagged: modResult?.isFlagged || false,

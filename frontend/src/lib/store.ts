@@ -46,6 +46,12 @@ export interface Conversation {
   participant: User;
 }
 
+// Latest-intent tracking for like/save operations
+interface PendingIntent {
+  intended: boolean; // The latest desired state (liked/saved or not)
+  inFlight: boolean; // Whether an API request is currently in progress
+}
+
 interface AppStoreState {
   // Cache storage
   posts: Record<string, Post>;
@@ -55,7 +61,14 @@ interface AppStoreState {
   messages: Record<string, Message[]>; // participantId -> messages
   activeChatId: string | null;
   
-  // Pending locks to prevent rapid repeated clicks
+  // Session tracking for cache invalidation on account switch (Issue 3)
+  sessionVersion: number;
+
+  // Latest-intent maps for like/save (Issue 1)
+  likePendingIntents: Record<string, PendingIntent>;
+  savePendingIntents: Record<string, PendingIntent>;
+
+  // Pending locks for follow operations only
   locks: Record<string, boolean>;
 
   // Post Actions
@@ -81,10 +94,38 @@ interface AppStoreState {
   prependMessagesLocal: (participantId: string, olderMessages: Message[]) => void;
   setActiveChatId: (id: string | null) => void;
 
+  // Session management (Issue 3)
+  incrementSession: () => number;
+  clearAllUserState: () => void;
+
   // Optimistic Operations
-  toggleLikePost: (postId: string) => Promise<void>;
-  toggleSavePost: (postId: string) => Promise<void>;
+  toggleLikePost: (postId: string) => void;
+  toggleSavePost: (postId: string) => void;
   toggleFollowUser: (userId: string, currentUserId?: string) => Promise<void>;
+}
+
+// Show a subtle non-blocking toast (Issue 1)
+function showToast(message: string) {
+  if (typeof window === 'undefined') return;
+  // Create a non-blocking toast element
+  const existing = document.getElementById('unseen-toast');
+  if (existing) existing.remove();
+  
+  const toast = document.createElement('div');
+  toast.id = 'unseen-toast';
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: rgba(15, 5, 37, 0.95); color: #c084fc; padding: 10px 20px;
+    border-radius: 12px; font-size: 13px; z-index: 99999;
+    border: 1px solid rgba(157, 78, 221, 0.3);
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    animation: fadeInUp 0.3s ease-out;
+    font-family: Inter, sans-serif;
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; }, 2500);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 export const useAppStore = create<AppStoreState>((set, get) => ({
@@ -95,6 +136,9 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   messages: {},
   locks: {},
   activeChatId: null,
+  sessionVersion: 0,
+  likePendingIntents: {},
+  savePendingIntents: {},
 
   // Set individual post to cache
   setPost: (post) => {
@@ -305,98 +349,215 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
     });
   },
 
-  // 1. Optimistic Like Action (with locks & rollback)
-  toggleLikePost: async (postId) => {
+  // ── Session management (Issue 3) ────────────────────────────────────
+  incrementSession: () => {
+    const next = get().sessionVersion + 1;
+    set({ sessionVersion: next });
+    return next;
+  },
+
+  clearAllUserState: () => {
+    set({
+      posts: {},
+      profiles: {},
+      feeds: {},
+      conversations: [],
+      messages: {},
+      locks: {},
+      activeChatId: null,
+      likePendingIntents: {},
+      savePendingIntents: {},
+    });
+  },
+
+  // ── Optimistic Like with latest-intent queue (Issue 1) ──────────────
+  toggleLikePost: (postId) => {
     const store = get();
-    // 1. Double click/lock prevention
-    if (store.locks[`like_${postId}`]) return;
-    
-    set((state) => ({
-      locks: { ...state.locks, [`like_${postId}`]: true }
-    }));
-
     const post = store.posts[postId];
-    if (!post) {
-      // Release lock if post doesn't exist
-      set((state) => ({
-        locks: { ...state.locks, [`like_${postId}`]: false }
-      }));
-      return;
-    }
+    if (!post) return;
 
-    const originalIsLiked = post.isLiked;
-    const originalLikesCount = post.likesCount;
-    const nextIsLiked = !originalIsLiked;
-    const nextLikesCount = Math.max(0, originalLikesCount + (nextIsLiked ? 1 : -1));
+    const currentIsLiked = post.isLiked;
+    const nextIsLiked = !currentIsLiked;
+    const nextLikesCount = Math.max(0, post.likesCount + (nextIsLiked ? 1 : -1));
 
-    // Update locally instantly (Optimistic UI)
+    // 1. Immediately toggle local state (optimistic)
     store.updatePostLocal(postId, {
       isLiked: nextIsLiked,
       likesCount: nextLikesCount
     });
 
-    try {
-      await apiFeed.interact(postId, 'like');
-    } catch (e) {
-      console.error('Failed to toggle like, rolling back', e);
-      // Rollback on failure
-      get().updatePostLocal(postId, {
-        isLiked: originalIsLiked,
-        likesCount: originalLikesCount
-      });
-    } finally {
-      // Debounce lock release for 250ms to prevent instant multi-click
-      setTimeout(() => {
-        set((state) => ({
-          locks: { ...state.locks, [`like_${postId}`]: false }
-        }));
-      }, 250);
-    }
-  },
-
-  // 2. Optimistic Save Action (with locks & rollback)
-  toggleSavePost: async (postId) => {
-    const store = get();
-    if (store.locks[`save_${postId}`]) return;
+    // 2. Record the latest intended state
+    const currentIntent = store.likePendingIntents[postId];
+    const isInFlight = currentIntent?.inFlight || false;
 
     set((state) => ({
-      locks: { ...state.locks, [`save_${postId}`]: true }
+      likePendingIntents: {
+        ...state.likePendingIntents,
+        [postId]: { intended: nextIsLiked, inFlight: isInFlight }
+      }
     }));
 
-    const post = store.posts[postId];
-    if (!post) {
+    // 3. If an API call is already in flight, just update the intent — the in-flight handler will pick it up
+    if (isInFlight) return;
+
+    // 4. Fire the API call
+    const sessionAtStart = store.sessionVersion;
+    const fireRequest = async () => {
+      const s = get();
+      const intent = s.likePendingIntents[postId];
+      if (!intent || s.sessionVersion !== sessionAtStart) return; // Session changed, abort
+
+      // Mark as in-flight
       set((state) => ({
-        locks: { ...state.locks, [`save_${postId}`]: false }
+        likePendingIntents: {
+          ...state.likePendingIntents,
+          [postId]: { ...intent, inFlight: true }
+        }
       }));
-      return;
-    }
 
-    const originalIsSaved = post.isSaved;
-    const originalSavesCount = post.savesCount || 0;
-    const nextIsSaved = !originalIsSaved;
-    const nextSavesCount = Math.max(0, originalSavesCount + (nextIsSaved ? 1 : -1));
+      try {
+        const result = await apiFeed.interact(postId, 'like');
 
-    // Update locally instantly (Optimistic UI)
+        // Check if session is still valid
+        if (get().sessionVersion !== sessionAtStart) return;
+
+        // Reconcile with server counts if available (Issue 7)
+        if (result && typeof result.likesCount === 'number') {
+          get().updatePostLocal(postId, { likesCount: Math.max(0, result.likesCount) });
+        }
+        if (result && typeof result.isLiked === 'boolean') {
+          // Only reconcile if no newer intent exists
+          const latestIntent = get().likePendingIntents[postId];
+          if (latestIntent && latestIntent.intended === intent.intended) {
+            get().updatePostLocal(postId, { isLiked: result.isLiked });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to toggle like', e);
+        // Revert only if the user's latest intent still matches what we tried to send
+        const latestIntent = get().likePendingIntents[postId];
+        if (latestIntent && latestIntent.intended === intent.intended && get().sessionVersion === sessionAtStart) {
+          const currentPost = get().posts[postId];
+          if (currentPost) {
+            get().updatePostLocal(postId, {
+              isLiked: !intent.intended,
+              likesCount: Math.max(0, currentPost.likesCount + (intent.intended ? -1 : 1))
+            });
+          }
+          showToast('Could not update. Try again.');
+        }
+      } finally {
+        // Mark as no longer in-flight
+        set((state) => ({
+          likePendingIntents: {
+            ...state.likePendingIntents,
+            [postId]: { ...(state.likePendingIntents[postId] || { intended: false }), inFlight: false }
+          }
+        }));
+
+        // Check if the user toggled again while we were in-flight
+        const latestIntent = get().likePendingIntents[postId];
+        const currentPost = get().posts[postId];
+        if (latestIntent && currentPost && latestIntent.intended !== currentPost.isLiked && get().sessionVersion === sessionAtStart) {
+          // Need to send another request for the latest intent — but first update UI
+          // The UI is already correct from the optimistic update, so just fire the request
+          fireRequest();
+        }
+      }
+    };
+
+    fireRequest();
+  },
+
+  // ── Optimistic Save with latest-intent queue (Issue 1) ──────────────
+  toggleSavePost: (postId) => {
+    const store = get();
+    const post = store.posts[postId];
+    if (!post) return;
+
+    const currentIsSaved = post.isSaved;
+    const nextIsSaved = !currentIsSaved;
+    const nextSavesCount = Math.max(0, (post.savesCount || 0) + (nextIsSaved ? 1 : -1));
+
+    // 1. Immediately toggle local state (optimistic)
     store.updatePostLocal(postId, {
       isSaved: nextIsSaved,
       savesCount: nextSavesCount
     });
 
-    try {
-      await apiFeed.interact(postId, 'save');
-    } catch (e) {
-      console.error('Failed to toggle save, rolling back', e);
-      get().updatePostLocal(postId, {
-        isSaved: originalIsSaved,
-        savesCount: originalSavesCount
-      });
-    } finally {
-      setTimeout(() => {
+    // 2. Record the latest intended state
+    const currentIntent = store.savePendingIntents[postId];
+    const isInFlight = currentIntent?.inFlight || false;
+
+    set((state) => ({
+      savePendingIntents: {
+        ...state.savePendingIntents,
+        [postId]: { intended: nextIsSaved, inFlight: isInFlight }
+      }
+    }));
+
+    // 3. If an API call is already in flight, just update the intent
+    if (isInFlight) return;
+
+    // 4. Fire the API call
+    const sessionAtStart = store.sessionVersion;
+    const fireRequest = async () => {
+      const s = get();
+      const intent = s.savePendingIntents[postId];
+      if (!intent || s.sessionVersion !== sessionAtStart) return;
+
+      set((state) => ({
+        savePendingIntents: {
+          ...state.savePendingIntents,
+          [postId]: { ...intent, inFlight: true }
+        }
+      }));
+
+      try {
+        const result = await apiFeed.interact(postId, 'save');
+        
+        if (get().sessionVersion !== sessionAtStart) return;
+
+        // Reconcile with server counts if available (Issue 7)
+        if (result && typeof result.savesCount === 'number') {
+          get().updatePostLocal(postId, { savesCount: Math.max(0, result.savesCount) });
+        }
+        if (result && typeof result.isSaved === 'boolean') {
+          const latestIntent = get().savePendingIntents[postId];
+          if (latestIntent && latestIntent.intended === intent.intended) {
+            get().updatePostLocal(postId, { isSaved: result.isSaved });
+          }
+        }
+      } catch (e) {
+        console.error('Failed to toggle save', e);
+        const latestIntent = get().savePendingIntents[postId];
+        if (latestIntent && latestIntent.intended === intent.intended && get().sessionVersion === sessionAtStart) {
+          const currentPost = get().posts[postId];
+          if (currentPost) {
+            get().updatePostLocal(postId, {
+              isSaved: !intent.intended,
+              savesCount: Math.max(0, (currentPost.savesCount || 0) + (intent.intended ? -1 : 1))
+            });
+          }
+          showToast('Could not update. Try again.');
+        }
+      } finally {
         set((state) => ({
-          locks: { ...state.locks, [`save_${postId}`]: false }
+          savePendingIntents: {
+            ...state.savePendingIntents,
+            [postId]: { ...(state.savePendingIntents[postId] || { intended: false }), inFlight: false }
+          }
         }));
-      }, 250);
-    }
+
+        const latestIntent = get().savePendingIntents[postId];
+        const currentPost = get().posts[postId];
+        if (latestIntent && currentPost && latestIntent.intended !== currentPost.isSaved && get().sessionVersion === sessionAtStart) {
+          fireRequest();
+        }
+      }
+    };
+
+    fireRequest();
   },
 
   // 3. Optimistic Follow Action (with locks, rollback & global count updates)
@@ -469,6 +630,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
           followingCount: Math.max(0, origFollowing + (wasFollowing ? 1 : -1))
         });
       }
+      showToast('Could not update. Try again.');
     } finally {
       setTimeout(() => {
         set((state) => ({

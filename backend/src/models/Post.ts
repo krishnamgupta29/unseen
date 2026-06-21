@@ -31,7 +31,7 @@ const PostSchema: Schema = new Schema(
   {
     author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     content: { type: String, required: true },
-    moodTag: { type: String, trim: true, maxlength: 30 },
+    moodTag: { type: String, trim: true, lowercase: true, maxlength: 30 },
     hashtags: [{ type: String, lowercase: true }],
     community: { type: Schema.Types.ObjectId, ref: 'Community' },
     // Engagement

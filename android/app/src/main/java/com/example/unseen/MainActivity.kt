@@ -94,7 +94,7 @@ class MainActivity : android.app.Activity() {
                     FrameLayout.LayoutParams.MATCH_PARENT
                 )
                 setBackgroundColor(Color.parseColor("#080016"))
-                visibility = View.VISIBLE
+                visibility = View.INVISIBLE
                 setLayerType(View.LAYER_TYPE_HARDWARE, null) // Hardware acceleration enabled
             }
             setupWebViewSettings()
@@ -123,6 +123,7 @@ class MainActivity : android.app.Activity() {
             try {
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
                 startActivity(intent)
+                Toast.makeText(this, "Download started. Open the downloaded APK to install the update.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(this, "No browser found to download APK", Toast.LENGTH_SHORT).show()
             }
@@ -133,10 +134,10 @@ class MainActivity : android.app.Activity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Safety fallback: dismiss splash after 3 seconds if JS hasn't notified yet
+                // Safety fallback: dismiss splash after 5 seconds if JS hasn't notified yet
                 webView.postDelayed({
                     hideSplash()
-                }, 3000)
+                }, 5000)
             }
 
             override fun onReceivedError(
@@ -459,13 +460,43 @@ class WebAppInterface(private val activity: MainActivity) {
     }
 
     @JavascriptInterface
-    fun openInBrowser(url: String) {
+    fun getIntroPlayed(): Boolean {
+        val sharedPref = activity.getSharedPreferences("UnseenPrefs", Context.MODE_PRIVATE)
+        return sharedPref.getBoolean("introPlayed", false)
+    }
+
+    @JavascriptInterface
+    fun setIntroPlayed(played: Boolean) {
+        val sharedPref = activity.getSharedPreferences("UnseenPrefs", Context.MODE_PRIVATE)
+        sharedPref.edit().putBoolean("introPlayed", played).apply()
+    }
+
+    @JavascriptInterface
+    fun getVersionCode(): Int {
+        return try {
+            val pInfo = activity.packageManager.getPackageInfo(activity.packageName, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                (pInfo.longVersionCode and 0xFFFFFFFFL).toInt()
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode
+            }
+        } catch (e: Exception) {
+            1
+        }
+    }
+
+    @JavascriptInterface
+    fun openDownloadUrl(url: String) {
         activity.runOnUiThread {
             try {
-                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
                 activity.startActivity(intent)
+                Toast.makeText(activity, "Download started. Open the downloaded APK to install the update.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
-                Toast.makeText(activity, "No browser found to open link", Toast.LENGTH_SHORT).show()
+                Toast.makeText(activity, "No browser found to open download link", Toast.LENGTH_SHORT).show()
             }
         }
     }

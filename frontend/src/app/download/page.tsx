@@ -25,22 +25,12 @@ export default function DownloadPage() {
             clearInterval(interval);
             
             // 3. Trigger actual file download
-            if (typeof window !== 'undefined' && (window as any).AndroidInterface && (window as any).AndroidInterface.openInBrowser) {
-              (window as any).AndroidInterface.openInBrowser('https://unseen-world.vercel.app/unseen.apk');
-            } else {
-              const ua = typeof window !== 'undefined' ? window.navigator.userAgent : '';
-              const isApkUA = ua.includes('UnseenAndroidAPK') || ua.includes('UnseenAPK');
-              if (isApkUA) {
-                window.location.href = 'https://unseen-world.vercel.app/unseen.apk';
-              } else {
-                const link = document.createElement('a');
-                link.href = '/unseen.apk';
-                link.setAttribute('download', 'unseen.apk');
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }
-            }
+            const link = document.createElement('a');
+            link.href = '/unseen.apk';
+            link.setAttribute('download', 'unseen.apk');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             
             setDownloadState('completed');
             return 100;

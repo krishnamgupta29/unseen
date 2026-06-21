@@ -34,6 +34,18 @@ interface AppState {
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
+function getUserIdFromToken(token: string | null): string | null {
+  if (!token) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.id || payload._id || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -132,13 +144,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const msgInterval = setInterval(fetchUnreadMessages, 60000); // 60s poll
       
       const socket = getSocket();
+      const { useAppStore } = require('../lib/store');
+      const boundSessionVersion = useAppStore.getState().sessionVersion;
+
       const handleNewNotification = () => {
+        const storeState = useAppStore.getState();
+        if (storeState.sessionVersion !== boundSessionVersion) return;
         fetchNotifications();
       };
       
       const handleNewMessage = (msg: any) => {
-        const { useAppStore } = require('../lib/store');
         const storeState = useAppStore.getState();
+        if (storeState.sessionVersion !== boundSessionVersion) return;
         
         const myId = currentUser.id;
         const otherId = msg.sender === myId ? msg.receiver : msg.sender;
@@ -177,8 +194,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       };
 
       const handleMessageReadSocket = (data: { readBy: string, conversationId: string }) => {
-        const { useAppStore } = require('../lib/store');
         const storeState = useAppStore.getState();
+        if (storeState.sessionVersion !== boundSessionVersion) return;
         const otherId = data.readBy;
         
         storeState.markConversationAsReadLocal(otherId);
@@ -195,13 +212,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       };
       
       const handleSessionTerminatedSocket = () => {
+        const storeState = useAppStore.getState();
+        if (storeState.sessionVersion !== boundSessionVersion) return;
         handleSessionTerminated();
+      };
+
+      const handlePostLiked = (data: { postId: string; likesCount: number; userId?: string }) => {
+        const storeState = useAppStore.getState();
+        if (storeState.sessionVersion !== boundSessionVersion) return;
+        if (data.userId === currentUser.id) return;
+
+        storeState.updatePostLocal(data.postId, {
+          likesCount: Math.max(0, data.likesCount),
+        });
+      };
+
+      const handlePostSaved = (data: { postId: string; savesCount: number; userId?: string }) => {
+        const storeState = useAppStore.getState();
+        if (storeState.sessionVersion !== boundSessionVersion) return;
+        if (data.userId === currentUser.id) return;
+
+        storeState.updatePostLocal(data.postId, {
+          savesCount: Math.max(0, data.savesCount),
+        });
       };
       
       socket.on('message:receive', handleNewMessage);
       socket.on('message:read', handleMessageReadSocket);
       socket.on('notification:new', handleNewNotification);
       socket.on('session:terminated', handleSessionTerminatedSocket);
+      socket.on('post:liked', handlePostLiked);
+      socket.on('post:saved', handlePostSaved);
       
       return () => {
         clearInterval(interval);
@@ -210,11 +251,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         socket.off('message:read', handleMessageReadSocket);
         socket.off('notification:new', handleNewNotification);
         socket.off('session:terminated', handleSessionTerminatedSocket);
+        socket.off('post:liked', handlePostLiked);
+        socket.off('post:saved', handlePostSaved);
       };
     } else {
       setNotifications([]);
     }
   }, [currentUser]);
+
+  // Sync token to Android native interface on load
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      const win = window as any;
+      if (win.AndroidInterface && typeof win.AndroidInterface.saveToken === 'function') {
+        try {
+          win.AndroidInterface.saveToken(token);
+        } catch (e) {}
+      }
+    }
+  }, []);
 
   // Issue 6: Deep link redirection on Android mobile browsers
   useEffect(() => {
@@ -279,22 +336,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setCurrentUser(null);
       setIsLoading(false);
     } else {
-      // Sync token to Android native interface on load
-      const win = window as any;
-      if (win.AndroidInterface && typeof win.AndroidInterface.saveToken === 'function') {
-        try {
-          win.AndroidInterface.saveToken(token);
-        } catch (e) {}
-      }
-
-      // Fast session restore from cache
+      // Fast session restore from cache (validated by userId)
       if (typeof window !== 'undefined') {
         const cachedUser = localStorage.getItem('cached_user');
         if (cachedUser) {
           try {
-            setCurrentUser(JSON.parse(cachedUser));
-            setIsLoading(false); // resolve loader instantly
-          } catch (_) {}
+            const parsedUser = JSON.parse(cachedUser);
+            const tokenUserId = getUserIdFromToken(token);
+            if (tokenUserId && (parsedUser.id === tokenUserId || parsedUser._id === tokenUserId)) {
+              // Increment session version
+              const { useAppStore } = require('../lib/store');
+              useAppStore.getState().incrementSession();
+
+              setCurrentUser(parsedUser);
+              setIsLoading(false); // resolve loader instantly
+            } else {
+              localStorage.removeItem('cached_user');
+            }
+          } catch (_) {
+            localStorage.removeItem('cached_user');
+          }
         }
       }
 
@@ -338,6 +399,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = (user: User) => {
+    // Reset store on login
+    const { useAppStore } = require('../lib/store');
+    useAppStore.getState().clearAllUserState();
+    useAppStore.getState().incrementSession();
+
     const normalizedUser = { ...user, id: user._id || user.id };
     setCurrentUser(normalizedUser);
     if (typeof window !== 'undefined') {
@@ -370,15 +436,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       
       // Reset Zustand store
       const { useAppStore } = require('../lib/store');
-      useAppStore.setState({
-        posts: {},
-        profiles: {},
-        feeds: {},
-        conversations: [],
-        messages: {},
-        locks: {},
-        activeChatId: null,
-      });
+      useAppStore.getState().clearAllUserState();
+      useAppStore.getState().incrementSession();
 
       setUnreadMessagesCount(0);
       setNotifications([]);
@@ -394,6 +453,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AppContext.Provider value={{ currentUser, isLoading, login, logout, updateCurrentUser, notifications, markNotificationsRead, users, unreadMessagesCount, setUnreadMessagesCount }}>
       {children}
+
       {showSessionModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />

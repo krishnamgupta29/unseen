@@ -11,6 +11,8 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   const [routeResolved, setRouteResolved] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateNotes, setUpdateNotes] = useState('');
+  const [apkDownloadUrl, setApkDownloadUrl] = useState('');
+  const [latestVersionCode, setLatestVersionCode] = useState<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, isLoading: authLoading } = useAppContext();
@@ -36,13 +38,31 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setIsHydrated(true);
 
-    // Check if intro has played
-    const introPlayed = localStorage.getItem('introPlayed');
+    // Notify native Android shell that we are ready (so it can hide the native splash and show the WebView)
+    const win = typeof window !== 'undefined' ? (window as any) : null;
+    if (win && win.AndroidInterface && typeof win.AndroidInterface.onIntroReady === 'function') {
+      try {
+        win.AndroidInterface.onIntroReady();
+      } catch (e) {}
+    }
+
+    // Check if intro has played (integrated with Android SharedPreferences on APK)
+    let introPlayed = false;
+    if (win && win.AndroidInterface && typeof win.AndroidInterface.getIntroPlayed === 'function') {
+      try {
+        introPlayed = win.AndroidInterface.getIntroPlayed();
+      } catch (e) {
+        introPlayed = localStorage.getItem('introPlayed') === 'true';
+      }
+    } else {
+      introPlayed = localStorage.getItem('introPlayed') === 'true';
+    }
+
     if (!introPlayed) {
       setShowIntro(true);
     }
 
-    // Version check for native Android APK
+    // Version check for native Android APK using versionCode
     if (typeof window !== 'undefined') {
       const currentPath = window.location.pathname;
       const normalizedCurrentPath = currentPath.length > 1 && currentPath.endsWith('/') 
@@ -50,21 +70,28 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
         : currentPath;
 
       if (normalizedCurrentPath !== '/download') {
-        const ua = window.navigator.userAgent;
-        const isApkUA = ua.includes('UnseenAndroidAPK');
+        const isApkUA = win.navigator.userAgent.includes('UnseenAndroidAPK');
         if (isApkUA) {
-          const match = ua.match(/UnseenAndroidAPK\/([0-9.]+)/);
-          // If no version found in UA, it's a pre-versioning (old) APK → treat as '0.0' so it always triggers the update alert
-          const currentVersion = match ? match[1] : '0.0';
-
           fetch('/app-version.json')
             .then(res => res.json())
             .then(data => {
-              if (data && data.version && data.version !== currentVersion) {
-                const dismissed = sessionStorage.getItem('dismissedUpdate');
-                if (dismissed !== data.version) {
-                  setUpdateNotes(data.releaseNotes || '');
-                  setShowUpdateModal(true);
+              if (data && typeof data.versionCode === 'number') {
+                setApkDownloadUrl(data.apkDownloadUrl || data.url || 'https://unseen-world.vercel.app/unseen.apk');
+                setLatestVersionCode(data.versionCode);
+
+                let installedVersionCode = 1;
+                if (win.AndroidInterface && typeof win.AndroidInterface.getVersionCode === 'function') {
+                  try {
+                    installedVersionCode = win.AndroidInterface.getVersionCode();
+                  } catch (e) {}
+                }
+
+                if (installedVersionCode < data.versionCode) {
+                  const dismissedVersionCode = localStorage.getItem('dismissedUpdateVersionCode');
+                  if (dismissedVersionCode !== String(data.versionCode)) {
+                    setUpdateNotes(data.releaseNotes || '');
+                    setShowUpdateModal(true);
+                  }
                 }
               }
             })
@@ -162,6 +189,12 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
 
   const handleIntroComplete = () => {
     localStorage.setItem('introPlayed', 'true');
+    const win = typeof window !== 'undefined' ? (window as any) : null;
+    if (win && win.AndroidInterface && typeof win.AndroidInterface.setIntroPlayed === 'function') {
+      try {
+        win.AndroidInterface.setIntroPlayed(true);
+      } catch (e) {}
+    }
     setShowIntro(false);
   };
 
@@ -223,16 +256,16 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
               <button
                 onClick={() => {
                   setShowUpdateModal(false);
-                  if (typeof window !== 'undefined' && (window as any).AndroidInterface && (window as any).AndroidInterface.openInBrowser) {
-                    (window as any).AndroidInterface.openInBrowser('https://unseen-world.vercel.app/download/');
-                  } else {
-                    const ua = typeof window !== 'undefined' ? window.navigator.userAgent : '';
-                    const isApkUA = ua.includes('UnseenAndroidAPK') || ua.includes('UnseenAPK');
-                    if (isApkUA) {
-                      window.location.href = 'https://unseen-world.vercel.app/unseen.apk';
-                    } else {
-                      window.location.href = '/download/';
+                  const downloadUrl = apkDownloadUrl || 'https://unseen-world.vercel.app/unseen.apk';
+                  const win = window as any;
+                  if (win.AndroidInterface && typeof win.AndroidInterface.openDownloadUrl === 'function') {
+                    try {
+                      win.AndroidInterface.openDownloadUrl(downloadUrl);
+                    } catch (e) {
+                      window.open(downloadUrl, '_blank');
                     }
+                  } else {
+                    window.open(downloadUrl, '_blank');
                   }
                 }}
                 className="flex-1 py-3 bg-gradient-to-r from-unseen-600 to-purple-650 hover:shadow-[0_0_20px_rgba(123,44,191,0.3)] transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-white cursor-pointer"
@@ -242,13 +275,9 @@ export default function IntroGate({ children }: { children: React.ReactNode }) {
               <button
                 onClick={() => {
                   setShowUpdateModal(false);
-                  fetch('/app-version.json')
-                    .then(res => res.json())
-                    .then(data => {
-                      if (data && data.version) {
-                        sessionStorage.setItem('dismissedUpdate', data.version);
-                      }
-                    });
+                  if (latestVersionCode) {
+                    localStorage.setItem('dismissedUpdateVersionCode', String(latestVersionCode));
+                  }
                 }}
                 className="px-4 py-3 bg-unseen-950/40 hover:bg-unseen-900/40 border border-unseen-800/40 transition-all rounded-xl text-xs uppercase tracking-wider font-bold text-gray-400 cursor-pointer"
               >

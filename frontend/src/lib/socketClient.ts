@@ -1,6 +1,13 @@
 import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
+let sessionId = 0;
+
+export const getSessionId = (): number => sessionId;
+export const incrementSessionId = (): number => {
+  sessionId++;
+  return sessionId;
+};
 
 const getSocketUrl = (): string => {
   let rawUrl =
@@ -60,6 +67,7 @@ export const getSocket = (): Socket => {
 
 /** Call this after a token rotation so the socket re-authenticates immediately */
 export const reconnectSocket = () => {
+  incrementSessionId();
   if (socket) {
     const token =
       typeof window !== 'undefined'
@@ -73,9 +81,11 @@ export const reconnectSocket = () => {
 };
 
 export const disconnectSocket = () => {
+  incrementSessionId();
   if (socket) {
     socket.disconnect();
     socket = null;
   }
 };
+
 

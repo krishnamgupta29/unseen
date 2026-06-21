@@ -182,6 +182,23 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     }
   }, [initialPost, storePost]);
 
+  // Safe scroll lock to prevent page jump and width shift
+  useEffect(() => {
+    if (showReportModal || showDeleteModal) {
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    };
+  }, [showReportModal, showDeleteModal]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) setShowMenu(false);
@@ -283,7 +300,11 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleReportPostClick = () => {
+  const handleReportPostClick = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setShowMenu(false);
     setShowReportModal(true);
   };
@@ -705,11 +726,13 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
       {/* Custom Report Modal */}
       <AnimatePresence>
         {showReportModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          >
+            <div
               onClick={() => setShowReportModal(false)}
               className="absolute inset-0 bg-black/70 backdrop-blur-md"
             />
@@ -773,18 +796,20 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
       
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {showDeleteModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          >
+            <div
               onClick={() => setShowDeleteModal(false)}
               className="absolute inset-0 bg-black/70 backdrop-blur-md"
             />
@@ -820,7 +845,7 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

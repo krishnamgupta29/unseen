@@ -120,7 +120,7 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#080016',
+  themeColor: '#16002f',
 };
 
 // ── Structured Data JSON-LD ──────────────────────────────────────────────────

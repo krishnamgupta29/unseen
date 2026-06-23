@@ -3,7 +3,6 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { body } from 'express-validator';
 import mongoose from 'mongoose';
-import https from 'https';
 import User from '../models/User';
 import RefreshToken from '../models/RefreshToken';
 import AbuseLog from '../models/AbuseLog';
@@ -16,64 +15,9 @@ const REFRESH_TOKEN_EXPIRY_DAYS = 36500; // 100 years for permanent session
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 
-const sendOtpEmail = async (email: string, otp: string): Promise<void> => {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.error('[RESEND] RESEND_API_KEY not set — skipping email send');
-    return;
-  }
-  const postData = JSON.stringify({
-    from: 'Unseen Security <onboarding@resend.dev>',
-    to: email,
-    subject: 'Your Unseen Verification OTP Code',
-    html: `
-      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #3c166d; border-radius: 12px; background-color: #0b011d; color: #ffffff;">
-        <h2 style="color: #c77dff; text-align: center; font-size: 24px; margin-bottom: 24px; letter-spacing: 2px;">UNSEEN SECURITY</h2>
-        <p style="font-size: 15px; line-height: 1.6; color: #d0c8ec;">You requested a verification code to access or secure your anonymous identity. Please use the following One-Time Password (OTP):</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #ff0a54; background-color: #160733; padding: 12px 30px; border-radius: 8px; border: 1px solid #5a189a; font-family: monospace;">${otp}</span>
-        </div>
-        <p style="font-size: 13px; line-height: 1.5; color: #8e80bc;">This OTP is valid for <strong>15 minutes</strong>. If you did not request this, please ignore this message securely.</p>
-        <hr style="border: 0; border-top: 1px solid #3c166d; margin: 24px 0;" />
-        <p style="font-size: 11px; text-align: center; color: #6c5f93;">&copy; 2026 Unseen. The Anonymous Network.</p>
-      </div>
-    `
-  });
-
-  const options = {
-    hostname: 'api.resend.com',
-    port: 443,
-    path: '/emails',
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(postData)
-    }
-  };
-
-  return new Promise<void>((resolve) => {
-    const req = https.request(options, (res) => {
-      let responseBody = '';
-      res.on('data', (chunk) => { responseBody += chunk; });
-      res.on('end', () => {
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          console.log(`[RESEND SUCCESS] OTP email delivered to ${email}`);
-        } else {
-          console.error(`[RESEND ERROR] Code: ${res.statusCode}, Body: ${responseBody}`);
-        }
-        resolve();
-      });
-    });
-
-    req.on('error', (err) => {
-      console.error('[RESEND CONNECTION EXCEPTION]', err);
-      resolve();
-    });
-
-    req.write(postData);
-    req.end();
-  });
+// Email sending disabled — no email service configured
+const sendOtpEmail = async (_email: string, _otp: string): Promise<void> => {
+  console.log('[EMAIL] Email service not configured — OTP not sent via email.');
 };
 
 // ─── Validation rules ──────────────────────────────────────────────────────

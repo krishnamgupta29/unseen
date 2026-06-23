@@ -37,7 +37,7 @@ const mongoose_1 = __importStar(require("mongoose"));
 const PostSchema = new mongoose_1.Schema({
     author: { type: mongoose_1.Schema.Types.ObjectId, ref: 'User', required: true },
     content: { type: String, required: true },
-    moodTag: { type: String, trim: true, maxlength: 30 },
+    moodTag: { type: String, trim: true, lowercase: true, maxlength: 30 },
     hashtags: [{ type: String, lowercase: true }],
     community: { type: mongoose_1.Schema.Types.ObjectId, ref: 'Community' },
     // Engagement
@@ -64,4 +64,5 @@ PostSchema.index({ author: 1, createdAt: -1 });
 PostSchema.index({ hashtags: 1 });
 PostSchema.index({ moodTag: 1 });
 PostSchema.index({ moderationStatus: 1, isDeleted: 1 });
+PostSchema.index({ isDeleted: 1, moderationStatus: 1, createdAt: -1 });
 exports.default = mongoose_1.default.model('Post', PostSchema);

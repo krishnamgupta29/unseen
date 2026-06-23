@@ -227,10 +227,13 @@ export const auth = {
 export type FeedMode = 'for_you' | 'following' | 'trending' | 'late_night' | 'rising';
 
 export const feed = {
-  get: (mode: FeedMode = 'for_you', page = 1) =>
-    apiFetch<{ posts: any[]; page: number; hasMore: boolean; mode: string }>(
-      `/feed?mode=${mode}&page=${page}`
-    ),
+  get: (mode: FeedMode = 'for_you', page = 1, newerThan?: string) => {
+    let url = `/feed?mode=${mode}&page=${page}`;
+    if (newerThan) {
+      url += `&newerThan=${encodeURIComponent(newerThan)}`;
+    }
+    return apiFetch<{ posts: any[]; page: number; hasMore: boolean; mode: string }>(url);
+  },
 
   createPost: (content: string, moodTag?: string) =>
     apiFetch<any>('/feed/posts', {

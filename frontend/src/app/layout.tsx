@@ -5,6 +5,7 @@ import { AppProvider } from '@/context/AppContext';
 import SecurityOverlay from '@/components/SecurityOverlay';
 import IntroGate from '@/components/IntroGate';
 import DeepLinkRedirect from '@/components/DeepLinkRedirect';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -180,6 +181,7 @@ export default function RootLayout({
             {children}
           </IntroGate>
         </AppProvider>
+        <Analytics />
       </body>
     </html>
   );

@@ -61,5 +61,6 @@ PostSchema.index({ author: 1, createdAt: -1 });
 PostSchema.index({ hashtags: 1 });
 PostSchema.index({ moodTag: 1 });
 PostSchema.index({ moderationStatus: 1, isDeleted: 1 });
+PostSchema.index({ isDeleted: 1, moderationStatus: 1, createdAt: -1 });
 
 export default mongoose.model<IPost>('Post', PostSchema);

@@ -125,6 +125,23 @@ export const toggleFollow = async (req: AuthRequest, res: Response) => {
       followingCount: followerUserFollowingCount
     });
 
+    // Also broadcast follow:created / follow:removed events specifically
+    if (isFollowing) {
+      broadcastEvent('follow:created', {
+        followerId,
+        followingId,
+        followersCount: followingUserFollowersCount,
+        followingCount: followerUserFollowingCount
+      });
+    } else {
+      broadcastEvent('follow:removed', {
+        followerId,
+        followingId,
+        followersCount: followingUserFollowersCount,
+        followingCount: followerUserFollowingCount
+      });
+    }
+
     return res.json({
       message: isFollowing ? 'Followed' : 'Unfollowed',
       isFollowing,

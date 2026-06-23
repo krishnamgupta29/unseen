@@ -114,6 +114,23 @@ const toggleFollow = async (req, res) => {
             followersCount: followingUserFollowersCount,
             followingCount: followerUserFollowingCount
         });
+        // Also broadcast follow:created / follow:removed events specifically
+        if (isFollowing) {
+            (0, socketManager_1.broadcastEvent)('follow:created', {
+                followerId,
+                followingId,
+                followersCount: followingUserFollowersCount,
+                followingCount: followerUserFollowingCount
+            });
+        }
+        else {
+            (0, socketManager_1.broadcastEvent)('follow:removed', {
+                followerId,
+                followingId,
+                followersCount: followingUserFollowersCount,
+                followingCount: followerUserFollowingCount
+            });
+        }
         return res.json({
             message: isFollowing ? 'Followed' : 'Unfollowed',
             isFollowing,

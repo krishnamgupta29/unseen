@@ -68,6 +68,16 @@ const getFeed = async (req, res) => {
             const sixHoursAgo = new Date(Date.now() - 6 * 3600000);
             query.createdAt = { $gte: sixHoursAgo };
         }
+        const newerThan = req.query.newerThan;
+        if (newerThan) {
+            const newerDate = new Date(newerThan);
+            if (query.createdAt) {
+                query.createdAt = { $gt: newerDate, $gte: query.createdAt.$gte };
+            }
+            else {
+                query.createdAt = { $gt: newerDate };
+            }
+        }
         const candidatePosts = await Post_1.default.find(query)
             .sort({ createdAt: -1 })
             .limit(100) // Reduced from 200 for faster scoring
@@ -120,17 +130,27 @@ const recordInteraction = async (req, res) => {
         // Toggle logic for likes and saves
         if (interactionType === 'like' || interactionType === 'save') {
             const existing = await UserInteraction_1.default.findOne({ userId, postId, interactionType });
+            const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
             if (existing) {
                 // Unlike or Unsave
                 await UserInteraction_1.default.deleteOne({ _id: existing._id });
-                const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
-                // Single atomic update: decrement count + recalculate engagement
-                const updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: -1 } }, { new: true });
+                // Single atomic update: decrement count
+                let updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: -1 } }, { new: true });
                 if (updated) {
+                    if (updated[countField] < 0) {
+                        updated[countField] = 0;
+                    }
                     const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
                         (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
                     updated.engagementScore = E;
                     await updated.save();
+                    // Broadcast updated counts for unlike/unsave
+                    (0, socketManager_1.broadcastEvent)(`post:un${interactionType}d`, {
+                        postId,
+                        likesCount: updated.likesCount,
+                        savesCount: updated.savesCount,
+                        userId
+                    });
                 }
             }
             else {
@@ -144,14 +164,23 @@ const recordInteraction = async (req, res) => {
                     hashtags: post.hashtags,
                     readDurationMs: readDurationMs || 0,
                 });
-                const countField = interactionType === 'like' ? 'likesCount' : 'savesCount';
-                // Single atomic update: increment count + recalculate engagement
-                const updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: 1 } }, { new: true });
+                // Single atomic update: increment count
+                let updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: 1 } }, { new: true });
                 if (updated) {
+                    if (updated[countField] < 0) {
+                        updated[countField] = 0;
+                    }
                     const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
                         (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
                     updated.engagementScore = E;
                     await updated.save();
+                    // Broadcast updated counts for like/save
+                    (0, socketManager_1.broadcastEvent)(`post:${interactionType}d`, {
+                        postId,
+                        likesCount: updated.likesCount,
+                        savesCount: updated.savesCount,
+                        userId
+                    });
                 }
                 if (interactionType === 'like') {
                     // Create notification for like (fire and forget)
@@ -180,6 +209,9 @@ const recordInteraction = async (req, res) => {
             if (countField) {
                 const updated = await Post_1.default.findByIdAndUpdate(postId, { $inc: { [countField]: 1 } }, { new: true });
                 if (updated) {
+                    if (updated[countField] < 0) {
+                        updated[countField] = 0;
+                    }
                     const E = (Math.max(0, updated.likesCount) * 1) + (Math.max(0, updated.commentsCount) * 2) +
                         (Math.max(0, updated.savesCount) * 3) + (Math.max(0, updated.repostsCount) * 2) + (Math.max(0, updated.viewsCount) * 0.1);
                     updated.engagementScore = E;
@@ -187,8 +219,17 @@ const recordInteraction = async (req, res) => {
                 }
             }
         }
+        const isLiked = await UserInteraction_1.default.exists({ userId, postId, interactionType: 'like' });
+        const isSaved = await UserInteraction_1.default.exists({ userId, postId, interactionType: 'save' });
+        const freshPost = await Post_1.default.findById(postId);
         (0, exports.invalidateTrendingCache)();
-        res.json({ message: 'Interaction recorded' });
+        res.json({
+            message: 'Interaction recorded',
+            isLiked: !!isLiked,
+            isSaved: !!isSaved,
+            likesCount: freshPost ? freshPost.likesCount : 0,
+            savesCount: freshPost ? freshPost.savesCount : 0
+        });
     }
     catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -213,9 +254,14 @@ const getTrendingTags = async (_req, res) => {
                 }
             },
             {
+                $addFields: {
+                    normalizedMoodTag: { $toLower: { $trim: { input: '$moodTag' } } }
+                }
+            },
+            {
                 $group: {
-                    _id: '$moodTag',
-                    count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } }
+                    _id: '$normalizedMoodTag',
+                    count: { $sum: 1 }
                 }
             },
             { $sort: { count: -1 } },
@@ -233,9 +279,14 @@ const getTrendingTags = async (_req, res) => {
                     }
                 },
                 {
+                    $addFields: {
+                        normalizedMoodTag: { $toLower: { $trim: { input: '$moodTag' } } }
+                    }
+                },
+                {
                     $group: {
-                        _id: '$moodTag',
-                        count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } }
+                        _id: '$normalizedMoodTag',
+                        count: { $sum: 1 }
                     }
                 },
                 { $sort: { count: -1 } },
@@ -252,9 +303,14 @@ const getTrendingTags = async (_req, res) => {
                     }
                 },
                 {
+                    $addFields: {
+                        normalizedMoodTag: { $toLower: { $trim: { input: '$moodTag' } } }
+                    }
+                },
+                {
                     $group: {
-                        _id: '$moodTag',
-                        count: { $sum: { $add: ['$likesCount', '$commentsCount', '$savesCount', '$repostsCount', 1] } }
+                        _id: '$normalizedMoodTag',
+                        count: { $sum: 1 }
                     }
                 },
                 { $sort: { count: -1 } },
@@ -279,18 +335,21 @@ const createPost = async (req, res) => {
         if ((0, moderationAI_1.detectSpamPost)(userId, content)) {
             return res.status(429).json({ message: 'You are posting too fast. Please wait.' });
         }
-        // Extract hashtags
-        const hashtags = (content.match(/#(\w+)/g) || []).map((t) => t.slice(1).toLowerCase());
+        // Extract and deduplicate hashtags
+        const hashtags = Array.from(new Set((content.match(/#(\w+)/g) || []).map((t) => t.slice(1).toLowerCase())));
+        const normalizedMoodTag = moodTag ? moodTag.trim().toLowerCase() : undefined;
         const post = await Post_1.default.create({
             author: userId,
             content,
-            moodTag: moodTag || undefined,
+            moodTag: normalizedMoodTag,
             hashtags,
             toxicityScore: modResult?.toxicityScore || 0,
             isFlagged: modResult?.isFlagged || false,
             moderationStatus: modResult?.isFlagged ? 'review' : 'clear',
         });
         const populated = await post.populate('author', 'username displayName avatarColor');
+        // Broadcast new post creation event
+        (0, socketManager_1.broadcastEvent)('post:created', populated);
         (0, exports.invalidateTrendingCache)();
         res.status(201).json(populated);
     }

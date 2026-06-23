@@ -81,6 +81,16 @@ export const getFeed = async (req: AuthRequest, res: Response) => {
       query.createdAt = { $gte: sixHoursAgo };
     }
 
+    const newerThan = req.query.newerThan as string;
+    if (newerThan) {
+      const newerDate = new Date(newerThan);
+      if (query.createdAt) {
+        query.createdAt = { $gt: newerDate, $gte: query.createdAt.$gte };
+      } else {
+        query.createdAt = { $gt: newerDate };
+      }
+    }
+
     const candidatePosts = await Post.find(query)
       .sort({ createdAt: -1 })
       .limit(100) // Reduced from 200 for faster scoring
@@ -159,8 +169,8 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
           updated.engagementScore = E;
           await updated.save();
 
-          // Broadcast updated counts
-          broadcastEvent(`post:${interactionType}d`, {
+          // Broadcast updated counts for unlike/unsave
+          broadcastEvent(`post:un${interactionType}d`, {
             postId,
             likesCount: updated.likesCount,
             savesCount: updated.savesCount,
@@ -193,7 +203,7 @@ export const recordInteraction = async (req: AuthRequest, res: Response) => {
           updated.engagementScore = E;
           await updated.save();
 
-          // Broadcast updated counts
+          // Broadcast updated counts for like/save
           broadcastEvent(`post:${interactionType}d`, {
             postId,
             likesCount: updated.likesCount,
@@ -381,6 +391,9 @@ export const createPost = async (req: AuthRequest, res: Response) => {
     });
 
     const populated = await post.populate('author', 'username displayName avatarColor');
+
+    // Broadcast new post creation event
+    broadcastEvent('post:created', populated);
 
     invalidateTrendingCache();
     res.status(201).json(populated);

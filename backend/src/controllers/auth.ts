@@ -17,7 +17,11 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutes
 
 const sendOtpEmail = async (email: string, otp: string): Promise<void> => {
-  const apiKey = process.env.RESEND_API_KEY || 're_73QjCDcx_82pmGk48rQjSQJ5YggN9XcV1';
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error('[RESEND] RESEND_API_KEY not set — skipping email send');
+    return;
+  }
   const postData = JSON.stringify({
     from: 'Unseen Security <onboarding@resend.dev>',
     to: email,

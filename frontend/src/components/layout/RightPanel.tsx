@@ -104,7 +104,10 @@ export default function RightPanel() {
                     className="flex items-center space-x-3 px-4 py-2 hover:bg-unseen-900/50 cursor-pointer transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full border border-[#080016] shrink-0 overflow-hidden relative">
-                      <div className={`absolute inset-0 bg-gradient-to-br ${user.avatarColor || 'from-gray-500 to-gray-700'}`} />
+                      <div 
+                        className={`absolute inset-0 ${!user.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${user.avatarColor || 'from-gray-500 to-gray-700'}` : ''}`} 
+                        style={{ backgroundColor: user.avatarColor?.startsWith('#') ? user.avatarColor : undefined }}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-white font-semibold truncate text-xs">{user.displayName}</h4>

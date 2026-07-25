@@ -85,7 +85,10 @@ export default function ExplorePage() {
                       className="glass p-4 rounded-xl flex items-center space-x-4 cursor-pointer hover:bg-unseen-900/40 transition-colors border border-transparent hover:border-unseen-800/30"
                     >
                       <div className="relative w-12 h-12 rounded-full border-2 border-[#080016] shrink-0 overflow-hidden shadow-[0_0_10px_rgba(157,78,221,0.3)]">
-                        <div className={`absolute inset-0 bg-gradient-to-br ${u.avatarColor || 'from-unseen-500 to-unseen-800'}`} />
+                        <div 
+                          className={`absolute inset-0 ${!u.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${u.avatarColor || 'from-unseen-500 to-unseen-800'}` : ''}`} 
+                          style={{ backgroundColor: u.avatarColor?.startsWith('#') ? u.avatarColor : undefined }}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-white font-semibold truncate text-sm">{u.displayName}</h4>

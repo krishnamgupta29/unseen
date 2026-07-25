@@ -64,12 +64,11 @@ const CommentItem = ({
     <div className="flex flex-col space-y-2 mt-2">
       <div className="flex items-start space-x-3 group">
         <div className="relative flex-shrink-0 mt-1">
-          <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${comment.author.avatarColor} blur-sm opacity-60`} />
-          <div className={`relative w-6 h-6 rounded-full bg-gradient-to-br ${comment.author.avatarColor || 'from-gray-500 to-gray-700'} border-[1.5px] border-[#080016] flex items-center justify-center shadow-inner`}>
-            <span className="text-white text-[9px] font-bold font-poppins uppercase select-none">
-              {comment.author.displayName?.charAt(0) || comment.author.username?.charAt(0) || '?'}
-            </span>
-          </div>
+          <div className="absolute inset-0 rounded-full blur-sm opacity-60" style={{ backgroundColor: comment.author.avatarColor?.startsWith('#') ? comment.author.avatarColor : undefined }} />
+          <div 
+            className={`relative w-6 h-6 rounded-full border-[1.5px] border-[#080016] flex items-center justify-center shadow-inner ${!comment.author.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${comment.author.avatarColor || 'from-gray-500 to-gray-700'}` : ''}`}
+            style={{ backgroundColor: comment.author.avatarColor?.startsWith('#') ? comment.author.avatarColor : undefined }}
+          />
         </div>
         <div className="flex-1 bg-unseen-900/30 p-3 rounded-2xl rounded-tl-sm border border-unseen-800/30">
           <div className="flex items-center space-x-2 mb-1">
@@ -468,12 +467,11 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => goToProfile(authorId)}>
           <div className="relative flex-shrink-0">
-            <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'} blur-md opacity-60`} />
-            <div className={`relative w-10 h-10 rounded-full bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'} border-2 border-[#080016] flex items-center justify-center shadow-inner`}>
-              <span className="text-white text-sm font-bold font-poppins uppercase select-none">
-                {author.displayName?.charAt(0) || author.username?.charAt(0) || '?'}
-              </span>
-            </div>
+            <div className="absolute inset-0 rounded-full blur-md opacity-60" style={{ backgroundColor: author.avatarColor?.startsWith('#') ? author.avatarColor : undefined }} />
+            <div 
+              className={`relative w-10 h-10 rounded-full border-2 border-[#080016] flex items-center justify-center shadow-inner ${!author.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${author.avatarColor || 'from-gray-500 to-gray-700'}` : ''}`}
+              style={{ backgroundColor: author.avatarColor?.startsWith('#') ? author.avatarColor : undefined }}
+            />
           </div>
           <div>
             <div className="flex items-center space-x-2">
@@ -616,11 +614,11 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
                           className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-unseen-800/40 transition-colors text-left group/user active:scale-95"
                         >
                           <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full shrink-0 overflow-hidden relative border border-[#080016] shadow-md flex items-center justify-center bg-gradient-to-br">
-                              <div className={`absolute inset-0 bg-gradient-to-br ${u.avatarColor || 'from-violet-500 to-purple-900'}`} />
-                              <span className="relative z-10 text-white text-[10px] font-bold font-poppins uppercase select-none">
-                                {u.displayName?.charAt(0) || u.username?.charAt(0) || '?'}
-                              </span>
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full shrink-0 overflow-hidden relative border border-[#080016] shadow-md flex items-center justify-center">
+                              <div 
+                                className={`absolute inset-0 ${!u.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${u.avatarColor || 'from-violet-500 to-purple-900'}` : ''}`} 
+                                style={{ backgroundColor: u.avatarColor?.startsWith('#') ? u.avatarColor : undefined }}
+                              />
                             </div>
                             <div className="flex flex-col min-w-0">
                               <span className="text-[11px] sm:text-xs text-gray-200 font-semibold truncate group-hover/user:text-white transition-colors">{u.displayName}</span>
@@ -662,12 +660,11 @@ function PostCardComponent({ post: initialPost }: { post: any }) {
             <div className="mt-6 pt-4 border-t border-unseen-800/30">
               <div className="flex items-start space-x-3 mb-6">
                 <div className="relative flex-shrink-0">
-                  <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${currentUser?.avatarColor || 'from-gray-500 to-gray-700'} blur-md opacity-60`} />
-                  <div className={`relative w-8 h-8 rounded-full bg-gradient-to-br ${currentUser?.avatarColor || 'from-gray-500 to-gray-700'} border-2 border-[#080016] flex items-center justify-center shadow-inner`}>
-                    <span className="text-white text-xs font-bold font-poppins uppercase select-none">
-                      {currentUser?.displayName?.charAt(0) || currentUser?.username?.charAt(0) || '?'}
-                    </span>
-                  </div>
+                  <div className="absolute inset-0 rounded-full blur-md opacity-60" style={{ backgroundColor: currentUser?.avatarColor?.startsWith('#') ? currentUser.avatarColor : undefined }} />
+                  <div 
+                    className={`relative w-8 h-8 rounded-full border-2 border-[#080016] flex items-center justify-center shadow-inner ${!currentUser?.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${currentUser?.avatarColor || 'from-gray-500 to-gray-700'}` : ''}`}
+                    style={{ backgroundColor: currentUser?.avatarColor?.startsWith('#') ? currentUser.avatarColor : undefined }}
+                  />
                 </div>
                 <div className="flex-1 relative">
                   <input

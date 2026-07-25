@@ -141,8 +141,11 @@ function MessagesContent() {
                     }`}
                   >
                     <div className="relative flex-shrink-0">
-                      <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${c.participant.avatarColor || 'from-unseen-500 to-unseen-800'} blur-[8px] opacity-60`} />
-                      <div className={`relative w-11 h-11 rounded-full bg-gradient-to-br ${c.participant.avatarColor || 'from-unseen-500 to-unseen-800'} border-2 border-[#080016]`}>
+                      <div className="absolute inset-0 rounded-full blur-[8px] opacity-60" style={{ backgroundColor: c.participant.avatarColor?.startsWith('#') ? c.participant.avatarColor : undefined }} />
+                      <div 
+                        className={`relative w-11 h-11 rounded-full border-2 border-[#080016] ${!c.participant.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${c.participant.avatarColor || 'from-unseen-500 to-unseen-800'}` : ''}`}
+                        style={{ backgroundColor: c.participant.avatarColor?.startsWith('#') ? c.participant.avatarColor : undefined }}
+                      >
                         {/* Pure colored orb */}
                       </div>
                       {c.unreadCount > 0 && (

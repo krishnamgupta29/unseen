@@ -82,8 +82,11 @@ function SharedPostPreview({ postId, onClick }: SharedPostPreviewProps) {
     >
       <div className="flex items-center space-x-2.5 mb-2.5">
         <div className="relative flex-shrink-0">
-          <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${post.author.avatarColor || 'from-gray-500 to-gray-700'} blur-sm opacity-50`} />
-          <div className={`relative w-7 h-7 rounded-full bg-gradient-to-br ${post.author.avatarColor || 'from-gray-500 to-gray-700'} border border-[#080016]`} />
+          <div className="absolute inset-0 rounded-full blur-sm opacity-50" style={{ backgroundColor: post.author.avatarColor?.startsWith('#') ? post.author.avatarColor : undefined }} />
+          <div 
+            className={`relative w-7 h-7 rounded-full border border-[#080016] ${!post.author.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${post.author.avatarColor || 'from-gray-500 to-gray-700'}` : ''}`} 
+            style={{ backgroundColor: post.author.avatarColor?.startsWith('#') ? post.author.avatarColor : undefined }}
+          />
         </div>
         <div className="min-w-0">
           <h4 className="text-xs font-bold text-gray-200 truncate leading-tight group-hover/card:text-white transition-colors">{post.author.displayName}</h4>
@@ -399,8 +402,11 @@ export default function ChatThread({ participantId, onBack }: ChatThreadProps) {
           {activeChat ? (
             <>
               <div className="relative flex-shrink-0">
-                <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${activeChat.avatarColor || 'from-unseen-500 to-unseen-800'} blur-[6px] opacity-60`} />
-                <div className={`relative w-9 h-9 rounded-full bg-gradient-to-br ${activeChat.avatarColor || 'from-unseen-500 to-unseen-800'} border-[1.5px] border-[#080016]`} />
+                <div className="absolute inset-0 rounded-full blur-[6px] opacity-60" style={{ backgroundColor: activeChat.avatarColor?.startsWith('#') ? activeChat.avatarColor : undefined }} />
+                <div 
+                  className={`relative w-9 h-9 rounded-full border-[1.5px] border-[#080016] ${!activeChat.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${activeChat.avatarColor || 'from-unseen-500 to-unseen-800'}` : ''}`} 
+                  style={{ backgroundColor: activeChat.avatarColor?.startsWith('#') ? activeChat.avatarColor : undefined }}
+                />
               </div>
               <div>
                 <h2 className="text-white font-bold text-sm leading-tight group-hover:text-unseen-300 transition-colors">{activeChat.displayName}</h2>

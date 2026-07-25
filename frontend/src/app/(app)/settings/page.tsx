@@ -23,8 +23,11 @@ export default function SettingsPage() {
           
           <div className="p-6 border-b border-unseen-800/50 flex items-center space-x-4 bg-unseen-900/30">
              <div className="relative flex-shrink-0">
-               <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${currentUser?.avatarColor || 'from-unseen-400 to-unseen-700'} blur-lg opacity-60`} />
-               <div className={`relative w-16 h-16 rounded-full bg-gradient-to-br ${currentUser?.avatarColor || 'from-unseen-400 to-unseen-700'} border-4 border-[#080016]`}>
+               <div className="absolute inset-0 rounded-full blur-lg opacity-60" style={{ backgroundColor: currentUser?.avatarColor?.startsWith('#') ? currentUser.avatarColor : undefined }} />
+               <div 
+                 className={`relative w-16 h-16 rounded-full border-4 border-[#080016] ${!currentUser?.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${currentUser?.avatarColor || 'from-unseen-400 to-unseen-700'}` : ''}`}
+                 style={{ backgroundColor: currentUser?.avatarColor?.startsWith('#') ? currentUser.avatarColor : undefined }}
+               >
                  {/* Pure colored orb */}
                </div>
              </div>

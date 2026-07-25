@@ -42,7 +42,7 @@ const UserSchema: Schema = new Schema(
     email: { type: String, sparse: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     bio: { type: String, default: '', maxlength: 300 },
-    avatarColor: { type: String, default: 'from-violet-500 to-purple-900' },
+    avatarColor: { type: String, default: '#7C3AED' },
     role: { type: String, enum: ['user', 'admin', 'moderator'], default: 'user' },
     // Security fields
     loginAttempts: { type: Number, default: 0 },

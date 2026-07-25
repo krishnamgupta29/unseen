@@ -314,7 +314,10 @@ function ProfileContent() {
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex items-center gap-6">
             <div className="relative">
-              <div className={`w-24 h-24 rounded-full bg-gradient-to-br ${profileUser.avatarColor || 'from-unseen-500 to-unseen-800'} shadow-[0_0_20px_rgba(157,78,221,0.3)] border-4 border-[#080016]`} />
+              <div 
+                className={`w-24 h-24 rounded-full shadow-[0_0_20px_rgba(157,78,221,0.3)] border-4 border-[#080016] ${!profileUser.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${profileUser.avatarColor || 'from-unseen-500 to-unseen-800'}` : ''}`} 
+                style={{ backgroundColor: profileUser.avatarColor?.startsWith('#') ? profileUser.avatarColor : undefined }}
+              />
               {profileUser.role === 'admin' && (
                 <div className="absolute -bottom-1 -right-1 bg-red-600 p-1.5 rounded-full border-2 border-[#080016]">
                   <Shield className="w-4 h-4 text-white" />
@@ -532,7 +535,10 @@ function ProfileContent() {
                       className="flex items-center space-x-4 p-3 rounded-xl hover:bg-unseen-900/50 transition-colors border border-transparent hover:border-unseen-800/50"
                     >
                       <div className="relative w-12 h-12 rounded-full border-2 border-[#080016] shrink-0 overflow-hidden shadow-[0_0_10px_rgba(157,78,221,0.3)] cursor-pointer" onClick={() => { setShowNetworkModal(null); router.push(`/profile?id=${u._id}`); }}>
-                         <div className={`absolute inset-0 bg-gradient-to-br ${u.avatarColor || 'from-gray-500 to-gray-700'}`} />
+                         <div 
+                           className={`absolute inset-0 ${!u.avatarColor?.startsWith('#') ? `bg-gradient-to-br ${u.avatarColor || 'from-gray-500 to-gray-700'}` : ''}`} 
+                           style={{ backgroundColor: u.avatarColor?.startsWith('#') ? u.avatarColor : undefined }}
+                         />
                       </div>
                       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setShowNetworkModal(null); router.push(`/profile?id=${u._id}`); }}>
                         <h4 className="text-white font-semibold truncate text-sm">{u.displayName}</h4>

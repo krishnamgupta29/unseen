@@ -32,18 +32,31 @@ export const getMessages = async (req: AuthRequest, res: Response) => {
 
     const decrypted = reversed.map(m => ({
       ...m,
-      content: (() => { try { return decrypt(m.encryptedContent, m.iv); } catch { return '[Encrypted]'; } })(),
-      encryptedContent: undefined, iv: undefined,
+      content: (() => { 
+        try { 
+          return decrypt(m.encryptedContent, m.iv, m.tag); 
+        } catch { 
+          return '[Encrypted]'; 
+        } 
+      })(),
+      encryptedContent: undefined, 
+      iv: undefined,
+      tag: undefined,
     }));
 
-    await Message.updateMany({ conversationId: getConversationId(myId, otherId), receiver: myId, isRead: false }, { isRead: true, readAt: new Date() });
+    await Message.updateMany(
+      { conversationId: getConversationId(myId, otherId), receiver: myId, isRead: false }, 
+      { isRead: true, readAt: new Date() }
+    );
     
     const { sendToUser } = require('../services/socketManager');
     sendToUser(myId, 'message:read', { readBy: myId, conversationId: getConversationId(myId, otherId) });
     sendToUser(otherId, 'message:read', { readBy: myId, conversationId: getConversationId(myId, otherId) });
 
     res.json(decrypted);
-  } catch (e: any) { res.status(500).json({ message: 'Server error', error: e.message }); }
+  } catch (e: any) { 
+    res.status(500).json({ message: 'Server error', error: e.message }); 
+  }
 };
 
 export const sendMessage = async (req: AuthRequest, res: Response) => {
@@ -52,18 +65,29 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
     const otherId = String(req.params.userId);
     const { content } = req.body;
     if (!content?.trim()) return res.status(400).json({ message: 'Empty message.' });
-    const { encryptedContent, iv } = encrypt(content.trim());
-    const message = await Message.create({ conversationId: getConversationId(myId, otherId), sender: myId, receiver: otherId, encryptedContent, iv });
+
+    // Use pre-save hook by passing text field, or encrypt directly with AES-256-GCM
+    const { encryptedContent, iv, tag } = encrypt(content.trim());
+    const message = await Message.create({ 
+      conversationId: getConversationId(myId, otherId), 
+      sender: myId, 
+      receiver: otherId, 
+      encryptedContent, 
+      iv,
+      tag 
+    });
+
     const obj = message.toObject ? message.toObject() : message;
-    
-    const payload = { ...obj, content, encryptedContent: undefined, iv: undefined };
+    const payload = { ...obj, content, encryptedContent: undefined, iv: undefined, tag: undefined };
     
     const { sendToUser } = require('../services/socketManager');
     sendToUser(otherId, 'message:receive', payload);
     sendToUser(myId, 'message:receive', payload);
 
     res.status(201).json(payload);
-  } catch (e: any) { res.status(500).json({ message: 'Server error', error: e.message }); }
+  } catch (e: any) { 
+    res.status(500).json({ message: 'Server error', error: e.message }); 
+  }
 };
 
 export const deleteMessage = async (req: AuthRequest, res: Response) => {
@@ -75,7 +99,9 @@ export const deleteMessage = async (req: AuthRequest, res: Response) => {
     message.deletedAt = new Date();
     await message.save();
     res.json({ message: 'Deleted.' });
-  } catch (e: any) { res.status(500).json({ message: 'Server error', error: e.message }); }
+  } catch (e: any) { 
+    res.status(500).json({ message: 'Server error', error: e.message }); 
+  }
 };
 
 export const deleteConversation = async (req: AuthRequest, res: Response) => {
@@ -83,8 +109,6 @@ export const deleteConversation = async (req: AuthRequest, res: Response) => {
     const { conversationId } = req.params;
     const myId = req.user!.id;
     
-    // Validate that the user is part of this conversation
-    // In our model, conversationId is built as `userA_userB`. We check if myId is included.
     if (!conversationId.includes(myId)) {
       return res.status(403).json({ message: 'Forbidden.' });
     }
@@ -135,12 +159,11 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
     const decrypted = latest.map(c => {
       let content = '[Encrypted]';
       try {
-        content = decrypt(c.lastMessage.encryptedContent, c.lastMessage.iv);
+        content = decrypt(c.lastMessage.encryptedContent, c.lastMessage.iv, c.lastMessage.tag);
       } catch (e) {}
       
       const otherUser = String(c.lastMessage.sender) === String(myId) ? c.receiverInfo : c.senderInfo;
       
-      // Skip conversations where the other user was deleted
       if (!otherUser) return null;
       
       return {
@@ -150,7 +173,8 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
           ...c.lastMessage,
           content,
           encryptedContent: undefined,
-          iv: undefined
+          iv: undefined,
+          tag: undefined
         },
         participant: {
           _id: otherUser._id,
@@ -162,7 +186,9 @@ export const getConversations = async (req: AuthRequest, res: Response) => {
     });
     
     res.json(decrypted.filter(Boolean));
-  } catch (e: any) { res.status(500).json({ message: 'Server error', error: e.message }); }
+  } catch (e: any) { 
+    res.status(500).json({ message: 'Server error', error: e.message }); 
+  }
 };
 
 export const reactToMessage = async (req: AuthRequest, res: Response) => {

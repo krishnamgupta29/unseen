@@ -87,29 +87,35 @@ export function initSocket(server: HTTPServer): SocketServer {
     // ── Join personal room for DMs ─────────────────────────────────────
     socket.join(`user:${user.id}`);
 
-    // ── Send message (real-time delivery) ──────────────────────────────
-    socket.on('message:send', (data: { receiverId: string; content: string }) => {
-      const { receiverId, content } = data;
-      if (!content?.trim()) return;
+    // ── Send message (real-time delivery with AES-256-GCM encryption) ──
+    const handleSendMessage = (data: { receiverId?: string; recipientId?: string; content?: string; text?: string }) => {
+      const receiverId = data.receiverId || data.recipientId;
+      const rawContent = data.content || data.text;
+      if (!receiverId || !rawContent?.trim()) return;
 
-      const { encryptedContent, iv } = encrypt(content.trim());
+      const content = rawContent.trim();
+      const { encryptedContent, iv, tag } = encrypt(content);
 
       const payload = {
         senderId: user.id,
         senderUsername: user.username,
-        content, // sender sees plaintext immediately
+        content, // Plaintext delivered in-memory to authorized sockets
         encryptedContent,
         iv,
+        tag,
         timestamp: new Date().toISOString(),
       };
 
-      io.to(`user:${receiverId}`).emit('message:receive', {
-        ...payload,
-        content: decrypt(encryptedContent, iv), // decrypt for receiver
-      });
+      // Deliver message over WebSockets (supporting both 'message:receive' and 'new_message' events)
+      const receiverRoom = `user:${receiverId}`;
+      io.to(receiverRoom).emit('message:receive', { ...payload, content: decrypt(encryptedContent, iv, tag) });
+      io.to(receiverRoom).emit('new_message', { ...payload, content: decrypt(encryptedContent, iv, tag) });
 
       socket.emit('message:sent', { ...payload, receiverId });
-    });
+    };
+
+    socket.on('message:send', handleSendMessage);
+    socket.on('send_message', handleSendMessage);
 
     // ── Typing indicators ──────────────────────────────────────────────
     socket.on('typing:start', (data: { receiverId: string }) => {
@@ -120,22 +126,30 @@ export function initSocket(server: HTTPServer): SocketServer {
       io.to(`user:${data.receiverId}`).emit('typing:stop', { userId: user.id });
     });
 
-    // ── Read receipts ──────────────────────────────────────────────────
-    socket.on('message:read', async (data: { senderId: string }) => {
+    // ── Read receipts (supporting both 'message:read' and 'mark_read') ─
+    const handleMarkRead = async (data: { senderId?: string; conversationId?: string }) => {
       const myId = user.id;
       const otherId = data.senderId;
+      if (!otherId) return;
+      
       const conversationId = [myId, otherId].sort().join('_');
       try {
         await Message.updateMany(
           { conversationId, receiver: myId, isRead: false },
           { isRead: true, readAt: new Date() }
         );
-        io.to(`user:${otherId}`).emit('message:read', { readBy: myId, conversationId });
-        io.to(`user:${myId}`).emit('message:read', { readBy: myId, conversationId });
+        const readPayload = { readBy: myId, conversationId };
+        io.to(`user:${otherId}`).emit('message:read', readPayload);
+        io.to(`user:${otherId}`).emit('mark_read', readPayload);
+        io.to(`user:${myId}`).emit('message:read', readPayload);
+        io.to(`user:${myId}`).emit('mark_read', readPayload);
       } catch (e) {
         console.error('Failed to mark messages as read via socket:', e);
       }
-    });
+    };
+
+    socket.on('message:read', handleMarkRead);
+    socket.on('mark_read', handleMarkRead);
 
     // ── Reactions ─────────────────────────────────────────────────────
     socket.on('reaction:add', (data: { messageId: string; receiverId: string; emoji: string }) => {
@@ -153,7 +167,7 @@ export function initSocket(server: HTTPServer): SocketServer {
     });
   });
 
-  // Broadcast network stats & trending vibes every 60 seconds (reduced from 5s to cut DB load)
+  // Broadcast network stats & trending vibes every 60 seconds
   setInterval(async () => {
     try {
       const totalUsers = await User.countDocuments();
